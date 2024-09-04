@@ -8,6 +8,9 @@ pub const EM__TARG = struct {
     pub fn enable() void {
         return;
     }
+    pub fn isEnabled() bool {
+        return false;
+    }
     pub fn restore(key: u32) void {
         _ = key;
         return;

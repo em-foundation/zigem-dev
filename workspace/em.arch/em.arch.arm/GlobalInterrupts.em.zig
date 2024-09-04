@@ -11,19 +11,25 @@ pub const EM__TARG = struct {
     //
     pub fn disable() u32 {
         const key = get_PRIMASK();
-        set_PRIMASK(1);
+        asm volatile ("cpsid i" ::: "memory");
+        // set_PRIMASK(1);
         return key;
     }
 
     pub fn enable() void {
-        set_PRIMASK(0);
+        asm volatile ("cpsie i" ::: "memory");
+        // set_PRIMASK(0);
+    }
+
+    pub fn isEnabled() bool {
+        return get_PRIMASK() == 0;
     }
 
     pub fn restore(key: u32) void {
-        set_PRIMASK(key);
+        if (key == 0) enable();
     }
 
-    fn get_PRIMASK() u32 {
+    pub fn get_PRIMASK() u32 {
         const key: u32 = 0;
         asm volatile (
             \\mrs %[key], primask        
@@ -34,7 +40,7 @@ pub const EM__TARG = struct {
         return key;
     }
 
-    fn set_PRIMASK(m: u32) void {
+    pub fn set_PRIMASK(m: u32) void {
         asm volatile ("msr primask, %[m]"
             :
             : [m] "r" (m),
