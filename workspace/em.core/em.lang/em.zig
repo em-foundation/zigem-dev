@@ -622,8 +622,8 @@ pub fn @"%%[a+]"() void {
 pub fn @"%%[a-]"() void {
     Debug.minus('A');
 }
-pub fn @"%%[a:]"(k: u8) void {
-    Debug.mark('A', k);
+pub fn @"%%[a:]"(e: anytype) void {
+    Debug.mark('A', e);
 }
 
 pub fn @"%%[b]"() void {
@@ -635,8 +635,8 @@ pub fn @"%%[b+]"() void {
 pub fn @"%%[b-]"() void {
     Debug.minus('B');
 }
-pub fn @"%%[b:]"(k: u8) void {
-    Debug.mark('B', k);
+pub fn @"%%[b:]"(e: anytype) void {
+    Debug.mark('B', e);
 }
 
 pub fn @"%%[c]"() void {
@@ -648,8 +648,8 @@ pub fn @"%%[c+]"() void {
 pub fn @"%%[c-]"() void {
     Debug.minus('C');
 }
-pub fn @"%%[c:]"(k: u8) void {
-    Debug.mark('C', k);
+pub fn @"%%[c:]"(e: anytype) void {
+    Debug.mark('C', e);
 }
 
 pub fn @"%%[d]"() void {
@@ -661,8 +661,8 @@ pub fn @"%%[d+]"() void {
 pub fn @"%%[d-]"() void {
     Debug.minus('D');
 }
-pub fn @"%%[d:]"(k: u8) void {
-    Debug.mark('D', k);
+pub fn @"%%[d:]"(e: anytype) void {
+    Debug.mark('D', e);
 }
 
 const @"// -------- MEM MGMT -------- //" = {};
