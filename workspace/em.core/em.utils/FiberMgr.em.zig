@@ -43,10 +43,12 @@ pub const EM__TARG = struct {
         const NIL: *Fiber = @ptrFromInt(4);
         head: *Fiber = NIL,
         tail: *Fiber = NIL,
+        count: u8 = 0,
         fn empty(self: *Self) bool {
             return self.head == NIL;
         }
         fn give(self: *Self, elem: *Fiber) void {
+            self.count += 1;
             if (self.empty()) {
                 self.head = elem;
                 self.tail = elem;
@@ -56,6 +58,7 @@ pub const EM__TARG = struct {
             elem.link = NIL;
         }
         fn take(self: *Self) *Fiber {
+            self.count -= 1;
             const e = self.head;
             self.head = e.link.?;
             e.link = null;
@@ -66,6 +69,7 @@ pub const EM__TARG = struct {
 
     pub fn dispatch() void {
         while (!ready_list.empty()) {
+            // if (Common.GlobalInterrupts.isEnabled()) em.fail();
             const fiber = ready_list.take();
             const body = fiber.body;
             Common.GlobalInterrupts.enable();
@@ -86,7 +90,10 @@ pub const EM__TARG = struct {
 
     pub fn Fiber_post(self: *Fiber) void {
         const key = Common.GlobalInterrupts.disable();
+        em.@"%%[a:]"(self.link == null);
         if (self.link == null) ready_list.give(self);
+        // em.@"%%[a:]"(ready_list.count);
+        //em.@"%%[>]"(ready_list.count);
         Common.GlobalInterrupts.restore(key);
     }
 };

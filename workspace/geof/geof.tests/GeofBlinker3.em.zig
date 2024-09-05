@@ -7,6 +7,7 @@ pub const AppLed = em.import.@"em__distro/BoardC".AppLed;
 pub const Common = em.import.@"em.mcu/Common";
 pub const FiberMgr = em.import.@"em.utils/FiberMgr";
 pub const Poller = em.import.@"em.mcu/Poller";
+pub const SysLed = em.import.@"em__distro/BoardC".SysLed;
 
 pub const pauseMax: u32 = 500; // ms
 
@@ -27,7 +28,7 @@ pub const EM__TARG = struct {
     var counter: u32 = 0;
 
     pub fn em__run() void {
-        AppBut.onPressed(onPressedCb, .{});
+        AppBut.onPressed(onPressedCb, .{ .min = 100, .max = 200 });
         blinkFiber.post();
         FiberMgr.run();
     }
@@ -35,7 +36,7 @@ pub const EM__TARG = struct {
     pub fn toggleLed(_: FiberMgr.BodyArg) void {
         AppLed.toggle();
         if ((counter % 2) == 0) {
-            em.print("{}: Hello World, rate {}\n", .{ counter / 2, pauseMax / pauseTime });
+            // em.print("{}: Hello World, rate {}\n", .{ counter / 2, pauseMax / pauseTime });
         }
         counter += 1;
         Poller.pause(pauseTime);
@@ -43,7 +44,12 @@ pub const EM__TARG = struct {
     }
 
     pub fn onPressedCb(_: AppBut.OnPressedCbArg) void {
-        em.print("In callback\n", .{});
+        // em.print("In callback\n", .{});
+        //em.@"%%[c]"();
+        //SysLed.wink(100);
+        SysLed.on();
+        Common.BusyWait.wait(100_000);
+        SysLed.off();
         pauseTime /= 2;
         if (pauseTime * 8 < pauseMax) {
             pauseTime = pauseMax;
