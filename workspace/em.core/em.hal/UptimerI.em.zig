@@ -16,7 +16,7 @@ pub const EM__TARG = struct {
     }
     pub fn read() *const Time {
         // TODO
-        return @ptrFromInt(0);
+        return @ptrFromInt(4);
     }
     pub fn resetSync() void {
         // TODO
