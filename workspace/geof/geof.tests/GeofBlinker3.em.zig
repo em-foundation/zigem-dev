@@ -45,8 +45,8 @@ pub const EM__TARG = struct {
 
     pub fn onPressedCb(_: AppBut.OnPressedCbArg) void {
         // em.print("In callback\n", .{});
-        //em.@"%%[c]"();
-        //SysLed.wink(100);
+        // em.@"%%[c]"();
+        // SysLed.wink(100);
         SysLed.on();
         Common.BusyWait.wait(100_000);
         SysLed.off();
