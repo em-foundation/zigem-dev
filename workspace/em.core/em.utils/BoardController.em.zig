@@ -3,20 +3,18 @@ pub const em__U = em.module(@This(), .{});
 pub const em__C = em__U.config(EM__CONFIG);
 
 pub const EM__CONFIG = struct {
-    Led: em.Proxy(em.import.@"em.hal/LedI"),
+    Led: em.Proxy(LedI),
 };
+pub const x_Led = em__C.Led;
 
 pub const Common = em.import.@"em.mcu/Common";
-
-pub const EM__META = struct {
-    pub const Led = em__C.Led;
-};
+pub const LedI = em.import.@"em.hal/LedI";
 
 pub const EM__TARG = struct {
     //
     const blinkRate = 50000;
     const EOT_BYTE = 0x4;
-    const Led = em__C.Led.scope();
+    const Led = em__C.Led.get();
     const SOT_BYTE = 0x3;
     const SOT_COUNT = 13;
 

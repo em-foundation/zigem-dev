@@ -6,9 +6,33 @@ pub const DOMAIN = domain_desc.DOMAIN;
 
 pub const IS_META = (DOMAIN == .META);
 
+fn declare_META() void {
+    comptime {
+        if (!IS_META) unreachable;
+    }
+}
+
+fn declare_TARG() void {
+    comptime {
+        if (IS_META) unreachable;
+    }
+}
+
+pub const @" ---- META ---- " = declare_META;
+pub const @" ---- TARG ---- " = declare_TARG;
+
 const @"// -------- UNIT SPEC -------- //" = {};
 
 pub const UnitName = @import("../../zigem/unit_names.zig").UnitName;
+
+pub fn asI(I: type, U: type) I.EM__SPEC {
+    comptime {
+        if (!U.em__U.hasInterface(I.em__U)) {
+            @compileError(std.fmt.comptimePrint("{s} does not inherit {s}", .{ U.em__U.upath, I.em__U.upath }));
+        }
+    }
+    return mkIobj(I.EM__SPEC, U);
+}
 
 fn mkUnit(This: type, kind: UnitKind, opts: UnitOpts) Unit {
     const un = if (opts.name != null) opts.name.? else @as([]const u8, @field(type_map, @typeName(This)));
@@ -17,14 +41,15 @@ fn mkUnit(This: type, kind: UnitKind, opts: UnitOpts) Unit {
         .generated = opts.generated,
         .meta_only = opts.meta_only,
         .inherits = if (opts.inherits == void) null else opts.inherits.em__U,
-        .Itab = if (kind == .interface) ItabType(unitScope(This)) else void,
+        .Itab = if (kind == .interface) ItabType(This) else void,
+        .IT = if (@hasDecl(This, "em__I")) This.em__I else void,
         .kind = kind,
         .legacy = opts.legacy,
         .upath = un,
     };
 }
 
-fn ItabType(T: type) type {
+pub fn ItabType(T: type) type {
     comptime {
         const ti = @typeInfo(T);
         var fdecl_list: []const std.builtin.Type.Declaration = &.{};
@@ -58,7 +83,7 @@ fn ItabType(T: type) type {
     }
 }
 
-fn mkIobj(Itab: type, U: type) Itab {
+pub fn mkIobj(Itab: type, U: type) Itab {
     var iobj = Itab{};
     const ti = @typeInfo(Itab);
     inline for (ti.Struct.fields) |fld| {
@@ -145,6 +170,7 @@ pub const Unit = struct {
     generated: bool = false,
     inherits: ?Unit,
     Itab: type,
+    IT: type,
 
     pub fn config(self: Self, comptime CT: type) CT {
         switch (DOMAIN) {
@@ -174,10 +200,11 @@ pub const Unit = struct {
     }
 
     pub fn Generate(self: Self, as_name: []const u8, comptime Template_Unit: type) type {
-        return unitScope(Template_Unit.em__generateS(self.extendPath(as_name)));
+        return Template_Unit.em__generateS(self.extendPath(as_name));
     }
 
     pub fn hasInterface(self: Self, inter: Unit) bool {
+        if (self.kind == .interface and std.mem.eql(u8, self.upath, inter.upath)) return true;
         comptime var iu = self.inherits;
         inline while (iu) |iuval| : (iu = iuval.inherits) {
             if (std.mem.eql(u8, iuval.upath, inter.upath)) return true;
@@ -198,29 +225,6 @@ pub const Unit = struct {
         return self.resolve();
     }
 };
-
-pub fn unitScope(U: type) type {
-    // TODO eliminate
-    return if (DOMAIN == .META) unitScope_H(U) else unitScope_T(U);
-}
-
-pub fn unitScope_H(U: type) type {
-    const S = if (@hasDecl(U, "EM__META")) U.EM__META else struct {};
-    return struct {
-        const _UID = @typeName(U) ++ "_scope";
-        pub usingnamespace U;
-        pub usingnamespace S;
-    };
-}
-
-pub fn unitScope_T(U: type) type {
-    const S = if (@hasDecl(U, "EM__TARG")) U.EM__TARG else struct {};
-    return struct {
-        const _UID = @typeName(U) ++ "_scope";
-        pub usingnamespace U;
-        pub usingnamespace S;
-    };
-}
 
 fn unitTypeName(unit: type) []const u8 {
     const tn: []const u8 = @typeName(unit);
@@ -246,7 +250,8 @@ fn initConfig(CT: type, upath: []const u8) CT {
                         const FT = fti.Pointer.child;
                         const fval = &struct {
                             var o = blk: {
-                                break :blk std.mem.zeroInit(FT, .{ .em__cfgid = .{ .un = upath, .cn = fld.name, .fi = idx } });
+                                const cid: *const CfgId = &.{ .un = upath, .cn = fld.name, .fi = idx };
+                                break :blk std.mem.zeroInit(FT, .{ .em__cfgid = cid });
                             };
                         }.o;
                         @field(new_c, fld.name) = fval;
@@ -267,44 +272,51 @@ const CfgId = struct {
 };
 
 pub fn Factory(T: type) type {
-    return if (DOMAIN == .META) Factory_H(T) else Factory_T(T);
+    return *Factory_S(T);
 }
 
-pub fn Factory_H(T: type) type {
-    return *struct {
+pub fn Factory_S(T: type) type {
+    return struct {
         const Self = @This();
 
         pub const _em__builtin = {};
 
-        em__cfgid: CfgId,
+        const _ItemsType = [](T);
+        const _ListType = if (IS_META) std.ArrayList(T) else _ItemsType;
 
-        _dname: []const u8,
-        _list: std.ArrayList(T) = std.ArrayList(T).init(arena.allocator()),
+        const _LIST_INIT = if (IS_META) _ListType.init(arena.allocator()) else undefined;
+
+        em__cfgid: ?*const CfgId = null,
+
+        _dname: []const u8 = undefined,
+        _list: _ListType = _LIST_INIT,
 
         pub fn createH(self: *Self, init: anytype) Obj(T) {
+            declare_META();
             const l = self._list.items.len;
             self._list.append(std.mem.zeroInit(T, init)) catch fail();
             const o = Obj(T){ ._fty = self, ._idx = l };
             return o;
         }
 
-        pub fn objCount(self: *const Self) usize {
-            return self._list.items.len;
-        }
-
-        pub fn objGet(self: *const Self, idx: usize) *T {
-            return @constCast(&self._list.items[idx]);
-        }
-
-        pub fn objTypeName(_: Self) []const u8 {
-            return mkTypeName(T);
+        pub fn items(self: *Self) _ItemsType {
+            if (IS_META) {
+                return self._list.items;
+            } else {
+                return self._list;
+            }
         }
 
         pub fn toString(self: *const Self) []const u8 {
-            return sprint("@constCast(&@\"{s}__OBJARR\")", .{self._dname});
+            declare_META();
+            return sprint("@constCast(&em.Factory_S({s}){{._list = &@\"{s}__OBJARR\"}})", .{
+                mkTypeName(T),
+                self._dname,
+            });
         }
 
         pub fn toStringDecls(self: *Self, comptime upath: []const u8, comptime cname: []const u8) []const u8 {
+            declare_META();
             self._dname = upath ++ "_em__C_" ++ cname;
             var sb = StringH{};
             const tn = mkTypeName(T);
@@ -320,7 +332,7 @@ pub fn Factory_H(T: type) type {
                 \\
             ;
             sb.add(sprint(size_txt, .{ self._dname, tn }));
-            for (0..self.objCount()) |i| {
+            for (0..self.items().len) |i| {
                 const abs_txt =
                     \\comptime {{
                     \\    asm (".globl \"{0s}${1d}\"");
@@ -338,10 +350,6 @@ pub fn Factory_H(T: type) type {
     };
 }
 
-pub fn Factory_T(T: type) type {
-    return []T;
-}
-
 pub fn Fxn(PT: type) type {
     switch (DOMAIN) {
         .META => {
@@ -354,7 +362,7 @@ pub fn Fxn(PT: type) type {
                     if (self._fname.len == 0) {
                         return "null";
                     } else {
-                        return sprint("{s}.{s}", .{ mkUnitImport(self._upath), self._fname });
+                        return sprint("{s}.EM__TARG.{s}", .{ mkUnitImport(self._upath), self._fname });
                     }
                 }
                 pub fn typeName() []const u8 {
@@ -362,29 +370,29 @@ pub fn Fxn(PT: type) type {
                 }
             };
         },
-        .TARG => {
-            return ?*const fn (params: PT) void;
-        },
+        .TARG => return Fxn_T(PT),
     }
 }
 
-pub fn Obj(T: type) type {
-    return if (DOMAIN == .META) Obj_H(T) else Obj_T(T);
+pub fn Fxn_T(PT: type) type {
+    return ?*const fn (params: PT) void;
 }
 
-pub fn Obj_H(T: type) type {
+pub fn Obj(T: type) type {
+    return if (DOMAIN == .META) Obj_S(T) else *T;
+}
+
+pub fn Obj_S(T: type) type {
     return struct {
         const Self = @This();
-
         pub const _em__builtin = {};
-
-        _fty: ?Factory_H(T) = undefined,
+        _fty: ?Factory(T) = undefined,
         _idx: usize,
         pub fn getIdx(self: *const Self) usize {
             return self._idx;
         }
         pub fn O(self: *const Self) *T {
-            return self._fty.?.objGet(self._idx);
+            return @constCast(&self._fty.?.items()[self._idx]);
         }
         pub fn toString(self: *const Self) []const u8 {
             return if (self._fty == null) "null" else sprint("@\"{s}__{d}\"", .{ self._fty.?._dname, self._idx });
@@ -395,140 +403,130 @@ pub fn Obj_H(T: type) type {
     };
 }
 
-pub fn Obj_T(T: type) type {
-    return *T;
-}
-
 pub fn Param(T: type) type {
-    return if (DOMAIN == .META) Param_H(T) else Param_T(T);
+    return *Param_S(T);
 }
 
-pub fn Param_H(T: type) type {
-    return *struct {
+pub fn Param_S(T: type) type {
+    return struct {
         const Self = @This();
 
         pub const _em__builtin = {};
 
-        em__cfgid: CfgId,
+        em__cfgid: ?*const CfgId = null,
 
         _val: T,
 
         pub fn get(self: *Self) T {
+            return if (IS_META) std.mem.zeroes(T) else self._val;
+        }
+
+        pub fn getH(self: *Self) T {
             return self._val;
         }
 
-        pub fn init(self: *Self, comptime v: T) void {
-            const pn = sprint("em.config.{s}.{s}", .{ self.em__cfgid.un, self.em__cfgid.cn });
-            self._val = property(pn, T, v);
-        }
-
         pub fn set(self: *Self, v: T) void {
+            declare_META();
             self._val = v;
         }
 
         pub fn toString(self: *const Self) []const u8 {
-            return sprint("{s}", .{toStringAux(self._val)});
+            declare_META();
+            return sprint("@constCast(&em.Param_S({s}){{._val = {s}}})", .{ mkTypeName(T), toStringAux(self._val) });
         }
 
         pub fn toStringDecls(_: *const Self, comptime _: []const u8, comptime _: []const u8) []const u8 {
+            declare_META();
             return "";
-        }
-
-        pub fn Type(_: Self) type {
-            return T;
-        }
-
-        pub fn unwrap(self: *const Self) T {
-            return self._val;
         }
     };
 }
 
-pub fn Param_T(T: type) type {
-    return T;
-}
-
 pub fn Proxy(I: type) type {
-    return if (DOMAIN == .META) Proxy_H(I) else Proxy_T(I);
+    return *Proxy_S(I);
 }
 
-pub fn Proxy_H(I: type) type {
-    return *struct {
+pub fn Proxy_S(I: type) type {
+    return struct {
         const Self = @This();
         pub const _em__builtin = {};
 
-        const Iobj = I.em__U.Itab;
-
-        em__cfgid: CfgId,
+        em__cfgid: ?*const CfgId = null,
 
         _upath: []const u8 = I.em__U.upath,
-        _iobj: Iobj = mkIobj(I.em__U.Itab, I.em__U.scope()),
+        _iobj: I.EM__SPEC = asI(I, I),
 
-        pub fn get(self: *const Self) Iobj {
+        pub fn get(self: *const Self) I.EM__SPEC {
             return self._iobj;
         }
 
-        pub fn set(self: *Self, mod: anytype) void {
-            const unit: Unit = mod.em__U;
-            std.debug.assert(unit.hasInterface(I.em__U));
-            if (!unit.hasInterface(I.em__U)) {
-                std.log.err("unit {s} does not implement {s}", .{ unit.upath, I.em__U.upath });
-                fail();
-            }
-            self._upath = unit.upath;
-            self._iobj = mkIobj(I.em__U.Itab, unit.scope());
+        pub fn set(self: *Self, Mod: anytype) void {
+            declare_META();
+            self._upath = Mod.em__U.upath;
+            self._iobj = asI(I, Mod);
         }
 
         pub fn toStringDecls(_: *const Self, comptime _: []const u8, comptime _: []const u8) []const u8 {
+            declare_META();
             return "";
         }
 
         pub fn toString(self: *const Self) []const u8 {
+            declare_META();
             var it = std.mem.splitSequence(u8, self._upath, "__");
             var sb = StringH{};
             sb.add(sprint("em.import.@\"{s}\"", .{it.first()}));
             while (it.next()) |seg| {
                 sb.add(sprint(".{s}", .{seg}));
             }
-            sb.add(".em__U");
-            return sb.get();
+            const IMod = mkUnitImport(I.em__U.upath);
+            const XMod = mkUnitImport(self._upath);
+            const iobj = sprint("em.asI({s}, {s})", .{ IMod, XMod });
+            return sprint("@constCast(&em.Proxy_S({s}){{._upath = \"{s}\", ._iobj = {s},}})", .{ IMod, self._upath, iobj });
         }
     };
-}
-
-pub fn Proxy_T(_: type) type {
-    return Unit;
 }
 
 pub const TableAccess = enum { RO, RW };
 
 pub fn Table(T: type, acc: TableAccess) type {
-    return if (DOMAIN == .META) Table_H(T, acc) else Table_T(T, acc);
+    return *Table_S(T, acc);
 }
 
-pub fn Table_H(comptime T: type, acc: TableAccess) type {
-    return *struct {
+pub fn Table_S(T: type, acc: TableAccess) type {
+    return struct {
         const Self = @This();
 
         pub const _em__builtin = {};
 
-        em__cfgid: CfgId,
+        const _ItemsType = if (IS_META or acc == .RW) []T else []const T;
+        const _ListType = if (IS_META) std.ArrayList(T) else _ItemsType;
 
-        _dname: []const u8,
+        const _LIST_INIT = if (IS_META) _ListType.init(arena.allocator()) else undefined;
+
+        em__cfgid: ?*const CfgId = null,
+
+        _dname: []const u8 = "",
         _is_virgin: bool = true,
-        _list: std.ArrayList(T) = std.ArrayList(T).init(arena.allocator()),
+        _list: _ListType = _LIST_INIT,
 
         pub fn add(self: *Self, item: T) void {
+            if (!IS_META) return;
             self._list.append(item) catch fail();
             self._is_virgin = false;
         }
 
-        pub fn items(self: *Self) []T {
-            self._is_virgin = false;
-            return self._list.items;
+        pub fn items(self: *Self) _ItemsType {
+            if (IS_META) {
+                self._is_virgin = false;
+                return self._list.items;
+            } else {
+                return self._list;
+            }
         }
 
         pub fn setLen(self: *Self, len: usize) void {
+            declare_META();
             const sav = self._is_virgin;
             const l = self._list.items.len;
             if (len > l) {
@@ -540,10 +538,16 @@ pub fn Table_H(comptime T: type, acc: TableAccess) type {
         }
 
         pub fn toString(self: *const Self) []const u8 {
-            return sprint("@constCast(&@\"{s}\")", .{self._dname});
+            declare_META();
+            return sprint("@constCast(&em.Table_S({s}, .{s}){{._list = &@\"{s}\"}})", .{
+                mkTypeName(T),
+                @tagName(acc),
+                self._dname,
+            });
         }
 
         pub fn toStringDecls(self: *Self, comptime upath: []const u8, comptime cname: []const u8) []const u8 {
+            declare_META();
             self._dname = upath ++ ".em__C." ++ cname;
             const tn = mkTypeName(T);
             var sb = StringH{};
@@ -560,10 +564,6 @@ pub fn Table_H(comptime T: type, acc: TableAccess) type {
             return sprint("pub {s} @\"{s}\" = {s};\n", .{ ks, self._dname, sb.get() });
         }
     };
-}
-
-pub fn Table_T(T: type, acc: TableAccess) type {
-    return if (acc == .RO) []const T else []T;
 }
 
 const @"// -------- BUILTIN FXNS -------- //" = {};
@@ -605,63 +605,80 @@ pub fn print(comptime fmt: []const u8, args: anytype) void {
 
 const @"// -------- DEBUG OPERATORS -------- //" = {};
 
-const Console = unitScope(@import("Console.em.zig"));
+const Console = @import("Console.em.zig");
 
 pub fn @"%%[>]"(v: anytype) void {
+    if (IS_META) return;
     Console.wrN(v);
 }
 
-const Debug = unitScope(@import("Debug.em.zig"));
+const Debug = @import("Debug.em.zig");
 
 pub fn @"%%[a]"() void {
+    if (IS_META) return;
     Debug.pulse('A');
 }
 pub fn @"%%[a+]"() void {
+    if (IS_META) return;
     Debug.plus('A');
 }
 pub fn @"%%[a-]"() void {
+    if (IS_META) return;
     Debug.minus('A');
 }
 pub fn @"%%[a:]"(e: anytype) void {
+    if (IS_META) return;
     Debug.mark('A', e);
 }
 
 pub fn @"%%[b]"() void {
+    if (IS_META) return;
     Debug.pulse('B');
 }
 pub fn @"%%[b+]"() void {
+    if (IS_META) return;
     Debug.plus('B');
 }
 pub fn @"%%[b-]"() void {
+    if (IS_META) return;
     Debug.minus('B');
 }
 pub fn @"%%[b:]"(e: anytype) void {
+    if (IS_META) return;
     Debug.mark('B', e);
 }
 
 pub fn @"%%[c]"() void {
+    if (IS_META) return;
     Debug.pulse('C');
 }
 pub fn @"%%[c+]"() void {
+    if (IS_META) return;
     Debug.plus('C');
 }
 pub fn @"%%[c-]"() void {
+    if (IS_META) return;
     Debug.minus('C');
 }
 pub fn @"%%[c:]"(e: anytype) void {
+    if (IS_META) return;
     Debug.mark('C', e);
 }
 
 pub fn @"%%[d]"() void {
+    if (IS_META) return;
     Debug.pulse('D');
 }
 pub fn @"%%[d+]"() void {
+    if (IS_META) return;
     Debug.plus('D');
 }
 pub fn @"%%[d-]"() void {
+    if (IS_META) return;
     Debug.minus('D');
 }
 pub fn @"%%[d:]"(e: anytype) void {
+    if (IS_META) return;
     Debug.mark('D', e);
 }
 

@@ -10,6 +10,7 @@ pub const EM__CONFIG = struct {
 pub const AlarmMgr = em.import.@"em.utils/AlarmMgr";
 pub const AppLed = em.import.@"em__distro/BoardC".AppLed;
 pub const FiberMgr = em.import.@"em.utils/FiberMgr";
+pub const TimeTypes = em.import.@"em.utils/TimeTypes";
 
 pub const EM__META = struct {
     //
@@ -23,12 +24,10 @@ pub const EM__META = struct {
 
 pub const EM__TARG = struct {
     //
-    const alarm = em__C.alarm;
-    const blinkF = em__C.blinkF;
     var counter: u32 = 0;
 
     pub fn em__run() void {
-        blinkF.post();
+        em__C.blinkF.get().post();
         FiberMgr.run();
     }
 
@@ -40,6 +39,6 @@ pub const EM__TARG = struct {
         } else {
             AppLed.wink(5); // 5ms
         }
-        alarm.wakeupAt(384); // 1.5s window
+        em__C.alarm.get().wakeupAligned(TimeTypes.Secs24p8_initMsecs(1_500)); // 1.5s window
     }
 };

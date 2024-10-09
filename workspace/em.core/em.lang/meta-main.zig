@@ -8,8 +8,12 @@ var used_set = std.StringHashMap(void).init(em.getHeap());
 inline fn callAll(comptime fname: []const u8, ulist: []const em.Unit, filter_used: bool) void {
     inline for (ulist) |u| {
         if (!filter_used or used_set.contains(u.upath)) {
-            const Scope = u.scope();
-            if (@hasDecl(Scope, fname)) _ = @call(.auto, @field(Scope, fname), .{});
+            const U = u.scope();
+            if (@hasDecl(U, fname)) {
+                _ = @call(.auto, @field(U, fname), .{});
+            } else if (@hasDecl(U, "EM__META") and @hasDecl(U.EM__META, fname)) {
+                _ = @call(.auto, @field(U.EM__META, fname), .{});
+            }
         }
     }
 }
@@ -33,10 +37,13 @@ pub fn exec(top: em.Unit) !void {
 fn genCall(comptime fname: []const u8, ulist: []const em.Unit, mode: enum { all, first }, out: std.fs.File.Writer) !void {
     inline for (ulist) |u| {
         const U = u.resolve();
-        if (@hasDecl(U, "EM__TARG") and @hasDecl(U.EM__TARG, fname)) {
+        comptime var pre_o: ?[]const u8 = null;
+        if (@hasDecl(U, fname)) pre_o = "";
+        if (@hasDecl(U, "EM__TARG") and @hasDecl(U.EM__TARG, fname)) pre_o = "EM__TARG.";
+        if (pre_o) |pre| {
             try out.print("    ", .{});
             try genImport(u.upath, out);
-            try out.print(".{s}();\n", .{fname});
+            try out.print(".{s}{s}();\n", .{ pre, fname });
             if (mode == .first) break;
         }
     }
@@ -145,7 +152,7 @@ fn genTarg(cur_top: em.Unit, ulist_bot: []const em.Unit, ulist_top: []const em.U
     try out.print("    asm volatile (\"__em__run:\");\n", .{});
     try out.print("    ", .{});
     try genImport(cur_top.upath, out);
-    try out.print(".em__run();\n", .{});
+    try out.print(".EM__TARG.em__run();\n", .{});
     try out.print("    em__halt();\n", .{});
     try out.print("}}\n", .{});
     file.close();

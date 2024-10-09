@@ -2,28 +2,19 @@ pub const em = @import("../../zigem/em.zig");
 pub const em__U = em.module(@This(), .{
     .inherits = em.import.@"em.hal/McuI",
 });
-pub const em__C = em__U.config(EM__CONFIG);
-
-pub const EM__CONFIG = struct {
-    no_cache: em.Param(bool),
-};
 
 pub const BusyWait = em.import.@"ti.mcu.cc23xx/BusyWait";
 pub const Debug = em.import.@"em.lang/Debug";
 
-pub const EM__META = struct {
-    //
-    pub fn em__initH() void {
-        em__C.no_cache.init(false);
-    }
-};
+pub const startup = EM__TARG.startup;
 
 pub const EM__TARG = struct {
     //
     const hal = em.hal;
     const reg = em.reg;
 
-    pub fn startup() void {
+    fn startup() void {
+        if (em.IS_META) return;
         Debug.startup();
         em.@"%%[a:]"(3);
         em.@"%%[a+]"();

@@ -13,14 +13,14 @@ pub const FiberMgr = em.import.@"em.utils/FiberMgr";
 pub const EM__META = struct {
     //
     pub fn em__constructH() void {
-        const blinkF = FiberMgr.createH(em__U.fxn("blinkFB", FiberMgr.BodyArg));
-        em__C.blinkF.set(blinkF);
+        const fiber = FiberMgr.createH(em__U.fxn("blinkFB", FiberMgr.BodyArg));
+        em__C.blinkF.set(fiber);
     }
 };
 
 pub const EM__TARG = struct {
     //
-    const blinkF = em__C.blinkF;
+    const blinkF = em__C.blinkF.get();
 
     pub fn em__run() void {
         blinkF.post();

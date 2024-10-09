@@ -9,8 +9,11 @@ pub const EM__CONFIG = struct {
 
 export fn DEFAULT_isr() void {
     if (em.IS_META) return;
-    em__U.scope().defaultIsr();
+    EM__TARG.defaultIsr();
 }
+
+pub const addIntrH = EM__META.addIntrH;
+pub const useIntrH = EM__META.useIntrH;
 
 pub const EM__META = struct {
     //
@@ -18,14 +21,6 @@ pub const EM__META = struct {
     var used_tab = em__C.used_tab;
 
     const NO_VEC = "<NA>";
-
-    pub fn addIntrH(name: []const u8) void {
-        name_tab.add(name);
-    }
-
-    pub fn useIntrH(name: []const u8) void {
-        used_tab.add(name);
-    }
 
     pub fn em__initH() void {
         const core_intrs = [_][]const u8{
@@ -45,7 +40,7 @@ pub const EM__META = struct {
             "SysTick",
         };
         for (core_intrs) |n| {
-            addIntrH(n);
+            EM__META.addIntrH(n);
         }
     }
 
@@ -99,6 +94,14 @@ pub const EM__META = struct {
         sbuf.add("};\n");
         em.writeFile(em.out_root, "intr.c", sbuf.get());
     }
+
+    fn addIntrH(name: []const u8) void {
+        name_tab.add(name);
+    }
+
+    fn useIntrH(name: []const u8) void {
+        used_tab.add(name);
+    }
 };
 
 pub const EM__TARG = struct {
@@ -110,7 +113,7 @@ pub const EM__TARG = struct {
         hal.SCB.*.VTOR = @intFromPtr(&__vector_table);
     }
 
-    pub fn defaultIsr() void {
+    fn defaultIsr() void {
         const vnum: u8 = @intCast(get_IPSR());
         em.@"%%[b:]"(3);
         em.@"%%[>]"(vnum);
@@ -127,16 +130,15 @@ pub const EM__TARG = struct {
         );
         return res;
     }
-
-    //    auto vecNum = <uint32>(^^__get_IPSR()^^)
-    //    %%[b:4]
-    //    %%[><uint8>vecNum]
-    //    auto frame = <uint32[]>(^^__get_MSP()^^)
-    //    %%[><uint32>&frame[0]]
-    //    for auto i = 0; i < 8; i++
-    //        %%[b]
-    //        %%[>frame[i]]
-    //    end
-    //    fail
-
 };
+
+//    auto vecNum = <uint32>(^^__get_IPSR()^^)
+//    %%[b:4]
+//    %%[><uint8>vecNum]
+//    auto frame = <uint32[]>(^^__get_MSP()^^)
+//    %%[><uint32>&frame[0]]
+//    for auto i = 0; i < 8; i++
+//        %%[b]
+//        %%[>frame[i]]
+//    end
+//    fail

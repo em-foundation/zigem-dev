@@ -8,8 +8,6 @@ pub const IntrVec = em.import.@"em.arch.arm/IntrVec";
 pub const LinkerH = em.import.@"em.build.misc/LinkerH";
 pub const StartupH = em.import.@"em.arch.arm/StartupH";
 
-pub const EM__META = struct {};
-
 pub fn em__configureH() void {
     const nvic_intrs = [_][]const u8{
         "CPUIRQ0",

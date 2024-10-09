@@ -3,27 +3,25 @@ pub const em__U = em.module(@This(), .{});
 pub const em__C = em__U.config(EM__CONFIG);
 
 pub const EM__CONFIG = struct {
-    CS: em.Proxy(em.import.@"em.hal/GpioI"),
-    CLK: em.Proxy(em.import.@"em.hal/GpioI"),
-    PICO: em.Proxy(em.import.@"em.hal/GpioI"),
-    POCI: em.Proxy(em.import.@"em.hal/GpioI"),
+    CS: em.Proxy(GpioI),
+    CLK: em.Proxy(GpioI),
+    PICO: em.Proxy(GpioI),
+    POCI: em.Proxy(GpioI),
 };
+pub const x_CS = em__C.CS;
+pub const x_CLK = em__C.CLK;
+pub const x_PICO = em__C.PICO;
+pub const x_POCI = em__C.POCI;
 
 pub const BusyWait = em.import.@"ti.mcu.cc23xx/BusyWait";
-
-pub const EM__META = struct {
-    pub const CS = em__C.CS;
-    pub const CLK = em__C.CLK;
-    pub const PICO = em__C.PICO;
-    pub const POCI = em__C.POCI;
-};
+pub const GpioI = em.import.@"em.hal/GpioI";
 
 pub const EM__TARG = struct {
     //
-    const CS = em__C.CS.scope();
-    const CLK = em__C.CLK.scope();
-    const PICO = em__C.PICO.scope();
-    const POCI = em__C.POCI.scope();
+    const CS = em__C.CS.get();
+    const CLK = em__C.CLK.get();
+    const PICO = em__C.PICO.get();
+    const POCI = em__C.POCI.get();
 
     const SD_CMD: u8 = 0xb9;
 

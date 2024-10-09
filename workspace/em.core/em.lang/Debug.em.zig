@@ -8,29 +8,33 @@ pub const EM__CONFIG = struct {
     DbgC: em.Proxy(GpioI),
     DbgD: em.Proxy(GpioI),
 };
+pub const x_DbgA = em__C.DbgA;
+pub const x_DbgB = em__C.DbgB;
+pub const x_DbgC = em__C.DbgC;
+pub const x_DbgD = em__C.DbgD;
 
 const Common = em.import.@"em.mcu/Common";
 const GpioI = em.import.@"em.hal/GpioI";
 
-pub const EM__META = struct {
-    pub const DbgA = em__C.DbgA;
-    pub const DbgB = em__C.DbgB;
-    pub const DbgC = em__C.DbgC;
-    pub const DbgD = em__C.DbgD;
-};
+pub const mark = EM__TARG.mark;
+pub const minus = EM__TARG.minus;
+pub const plus = EM__TARG.plus;
+pub const pulse = EM__TARG.pulse;
+pub const reset = EM__TARG.reset;
+pub const startup = EM__TARG.startup;
 
 pub const EM__TARG = struct {
     //
-    const DbgA = em__C.DbgA.scope();
-    const DbgB = em__C.DbgB.scope();
-    const DbgC = em__C.DbgC.scope();
-    const DbgD = em__C.DbgD.scope();
+    const DbgA = em__C.DbgA.get();
+    const DbgB = em__C.DbgB.get();
+    const DbgC = em__C.DbgC.get();
+    const DbgD = em__C.DbgD.get();
 
     fn delay() void {
         Common.BusyWait.wait(1);
     }
 
-    pub fn mark(comptime id: u8, e: anytype) void {
+    fn mark(comptime id: u8, e: anytype) void {
         const ti = @typeInfo(@TypeOf(e));
         const k: u8 = switch (ti) {
             .Bool => @intFromBool(e),
@@ -39,29 +43,29 @@ pub const EM__TARG = struct {
             else => 0,
         };
         for (0..k + 1) |_| {
-            pulse(id);
+            EM__TARG.pulse(id);
         }
     }
 
-    pub fn minus(comptime id: u8) void {
+    fn minus(comptime id: u8) void {
         getDbg(id).set();
     }
 
-    fn getDbg(comptime id: u8) type {
+    fn getDbg(comptime id: u8) GpioI.EM__SPEC {
         switch (id) {
             'A' => return DbgA,
             'B' => return DbgB,
             'C' => return DbgC,
             'D' => return DbgD,
-            else => return GpioI,
+            else => return GpioI.EM__SPEC,
         }
     }
 
-    pub fn plus(comptime id: u8) void {
+    fn plus(comptime id: u8) void {
         getDbg(id).clear();
     }
 
-    pub fn pulse(comptime id: u8) void {
+    fn pulse(comptime id: u8) void {
         const Dbg = getDbg(id);
         Dbg.toggle();
         delay();
@@ -69,7 +73,7 @@ pub const EM__TARG = struct {
         delay();
     }
 
-    pub fn reset() void {
+    fn reset() void {
         resetDbg('A');
         resetDbg('B');
         resetDbg('C');
@@ -81,7 +85,7 @@ pub const EM__TARG = struct {
         Dbg.reset();
     }
 
-    pub fn startup() void {
+    fn startup() void {
         startDbg('A');
         startDbg('B');
         startDbg('C');

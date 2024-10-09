@@ -8,7 +8,7 @@ pub const EM__CONFIG = struct {
     max_cnt: em.Param(u16),
 };
 
-pub const BoardC = em.import.@"em__distro/BoardC";
+pub const AppLed = em.import.@"em__distro/BoardC".AppLed;
 pub const Common = em.import.@"em.mcu/Common";
 
 pub const EM__META = struct {
@@ -22,11 +22,9 @@ pub const EM__META = struct {
 
 pub const EM__TARG = struct {
     //
-    const AppLed = BoardC.AppLed;
-
-    const dbg_flag = em__C.dbg_flag;
-    const min_cnt = em__C.min_cnt;
-    const max_cnt = em__C.max_cnt;
+    const dbg_flag = em__C.dbg_flag.get();
+    const min_cnt = em__C.min_cnt.get();
+    const max_cnt = em__C.max_cnt.get();
 
     pub fn em__run() void {
         AppLed.on();

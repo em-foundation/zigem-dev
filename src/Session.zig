@@ -180,11 +180,12 @@ fn genUnits() !void {
                 if (ent2.kind != .file) continue;
                 const idx = std.mem.indexOf(u8, ent2.name, ".em.zig");
                 if (idx == null) continue;
-                file.print("pub const @\"{0s}/{1s}\" = em.unitScope(@import(\"../{2s}/{0s}/{3s}\"));\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
+                file.print("pub const @\"{0s}/{1s}\" = @import(\"../{2s}/{0s}/{3s}\");\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
                 const tn = try sprint("{s}.{s}.{s}.em", .{ pkgname, buckname, ent2.name[0..idx.?] });
                 const un = try sprint("{s}/{s}", .{ buckname, ent2.name[0..idx.?] });
                 try type_map.put(tn, un);
-                if (is_distro) file.print("pub const @\"em__distro/{1s}\" = em.unitScope(@import(\"../{2s}/{0s}/{3s}\"));\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
+                if (!is_distro) continue;
+                file.print("pub const @\"em__distro/{1s}\" = @import(\"../{2s}/{0s}/{3s}\");\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
             }
         }
     }
