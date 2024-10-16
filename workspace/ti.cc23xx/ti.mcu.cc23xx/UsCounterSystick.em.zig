@@ -1,9 +1,12 @@
 pub const em = @import("../../zigem/em.zig");
 pub const em__U = em.module(@This(), .{
-    .inherits = em.import.@"em.hal/UsCounterI",
+    .inherits = UsCounterI,
 });
 
-pub const EM__META = struct {};
+pub const UsCounterI = em.import.@"em.hal/UsCounterI";
+
+pub const start = EM__TARG.start;
+pub const stop = EM__TARG.stop;
 
 pub const EM__TARG = struct {
     //

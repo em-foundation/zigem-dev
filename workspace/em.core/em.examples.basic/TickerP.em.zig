@@ -10,23 +10,25 @@ pub const EM__CONFIG = struct {
 pub const AppLed = em.import.@"em__distro/BoardC".AppLed;
 pub const FiberMgr = em.import.@"em.utils/FiberMgr";
 pub const TickerMgr = em.import.@"em.utils/TickerMgr";
+pub const TimeTypes = em.import.@"em.utils/TimeTypes";
 pub const SysLed = em.import.@"em__distro/BoardC".SysLed;
 
 pub const EM__META = struct {
-    pub fn em__constructH() void {
-        em__C.appTicker.set(TickerMgr.createH());
-        em__C.sysTicker.set(TickerMgr.createH());
+    //
+    pub fn em__constructM() void {
+        em__C.appTicker.setM(TickerMgr.createM());
+        em__C.sysTicker.setM(TickerMgr.createM());
     }
 };
 
 pub const EM__TARG = struct {
     //
-    const appTicker = em__C.appTicker;
-    const sysTicker = em__C.sysTicker;
+    const appTicker = em__C.appTicker.unwrap();
+    const sysTicker = em__C.sysTicker.unwrap();
 
     pub fn em__run() void {
-        appTicker.start(256, &appTickCb);
-        sysTicker.start(384, &sysTickCb);
+        appTicker.start(TimeTypes.Secs24p8_initMsecs(1_000), &appTickCb);
+        sysTicker.start(TimeTypes.Secs24p8_initMsecs(1_500), &sysTickCb);
         FiberMgr.run();
     }
 

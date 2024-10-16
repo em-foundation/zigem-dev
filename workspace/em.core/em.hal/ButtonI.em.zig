@@ -9,12 +9,16 @@ pub const DurationMs = struct {
 pub const OnPressedCbFxn = em.Fxn(OnPressedCbArg);
 pub const OnPressedCbArg = struct {};
 
-pub const EM__TARG = struct {
-    pub fn isPressed() bool {
-        return false;
-    }
-    pub fn onPressed(cb: OnPressedCbFxn, dur: DurationMs) void {
-        _ = cb;
-        _ = dur;
-    }
+pub const EM__SPEC = struct {
+    isPressed: *const @TypeOf(isPressed) = &isPressed,
+    onPressed: *const @TypeOf(onPressed) = &onPressed,
 };
+
+pub fn isPressed() bool {
+    return false;
+}
+
+pub fn onPressed(cb: OnPressedCbFxn, dur: DurationMs) void {
+    _ = cb;
+    _ = dur;
+}

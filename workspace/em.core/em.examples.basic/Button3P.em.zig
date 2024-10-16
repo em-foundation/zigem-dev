@@ -12,8 +12,6 @@ pub const Common = em.import.@"em.mcu/Common";
 pub const FiberMgr = em.import.@"em.utils/FiberMgr";
 pub const SysLed = em.import.@"em__distro/BoardC".SysLed;
 
-pub const EM__META = struct {};
-
 pub const EM__TARG = struct {
     //
     pub fn em__run() void {

@@ -13,14 +13,18 @@ pub const OneShot = em.import.@"em__distro/BoardC".OneShot;
 
 pub const EM__META = struct {
     //
-    pub fn em__constructH() void {
-        em__C.blinkF.set(FiberMgr.createH(em__U.fxn("blinkFB", FiberMgr.BodyArg)));
+    pub fn em__constructM() void {
+        em__C.blinkF.setM(FiberMgr.createM(em__U.fxn("blinkFB", FiberMgr.BodyArg)));
+    }
+
+    pub fn blinkFB(a: FiberMgr.BodyArg) void {
+        EM__TARG.blinkFB(a);
     }
 };
 
 pub const EM__TARG = struct {
     //
-    const blinkF = em__C.blinkF;
+    const blinkF = em__C.blinkF.unwrap();
     var count: u8 = 5;
 
     pub fn em__run() void {
