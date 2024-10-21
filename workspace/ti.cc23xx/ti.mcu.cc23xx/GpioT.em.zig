@@ -20,17 +20,15 @@ pub fn em__generateS(comptime name: []const u8) type {
 
         pub const EM__META = struct {
             //
-            pub const pin = em__C.pin;
-
-            pub fn em__initH() void {
-                pin.set(-1);
+            pub const c_pin = em__C.pin;
+            pub fn em__initM() void {
+                em__C.pin.setM(-1);
             }
         };
 
         pub const EM__TARG = struct {
             //
-
-            const pin = em__C.pin;
+            const pin = em__C.pin.unwrap();
             const is_def = (pin >= 0);
             const mask = init: {
                 const p5 = @as(u5, @bitCast(@as(i5, @truncate(pin))));
@@ -52,7 +50,7 @@ pub fn em__generateS(comptime name: []const u8) type {
 
             pub fn get() bool {
                 if (!is_def) return false;
-                return if (isInput()) (reg(hal.GPIO_BASE + hal.GPIO_O_DIN31_0).* & mask) != 0 else (reg(hal.GPIO_BASE + hal.GPIO_O_DOUT31_0).* & mask) != 0;
+                return if (EM__TARG.isInput()) (reg(hal.GPIO_BASE + hal.GPIO_O_DIN31_0).* & mask) != 0 else (reg(hal.GPIO_BASE + hal.GPIO_O_DOUT31_0).* & mask) != 0;
             }
 
             pub fn isInput() bool {
@@ -110,5 +108,27 @@ pub fn em__generateS(comptime name: []const u8) type {
                 if (is_def) reg(hal.GPIO_BASE + hal.GPIO_O_DOUTTGL31_0).* = mask;
             }
         };
+
+        //->> zigem publish #|c98f0bd34a614805555a0802c6202527bc7868d466d1c25de8f63a6d198067e0|#
+
+        //->> EM__META publics
+        pub const c_pin = EM__META.c_pin;
+
+        //->> EM__TARG publics
+        pub const clear = EM__TARG.clear;
+        pub const functionSelect = EM__TARG.functionSelect;
+        pub const get = EM__TARG.get;
+        pub const isInput = EM__TARG.isInput;
+        pub const isOutput = EM__TARG.isOutput;
+        pub const makeInput = EM__TARG.makeInput;
+        pub const makeOutput = EM__TARG.makeOutput;
+        pub const pinId = EM__TARG.pinId;
+        pub const reset = EM__TARG.reset;
+        pub const set = EM__TARG.set;
+        pub const setInternalPulldown = EM__TARG.setInternalPulldown;
+        pub const setInternalPullup = EM__TARG.setInternalPullup;
+        pub const toggle = EM__TARG.toggle;
+
+        //->> zigem publish -- end of generated code
     };
 }

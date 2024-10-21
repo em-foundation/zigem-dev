@@ -12,15 +12,15 @@ pub const FiberMgr = em.import.@"em.utils/FiberMgr";
 
 pub const EM__META = struct {
     //
-    pub fn em__constructH() void {
-        const blinkF = FiberMgr.createH(em__U.fxn("blinkFB", FiberMgr.BodyArg));
-        em__C.blinkF.set(blinkF);
+    pub fn em__constructM() void {
+        const fiber = FiberMgr.createM(em__U.fxn("blinkFB", FiberMgr.BodyArg));
+        em__C.blinkF.setM(fiber);
     }
 };
 
 pub const EM__TARG = struct {
     //
-    const blinkF = em__C.blinkF;
+    const blinkF = em__C.blinkF.unwrap();
 
     pub fn em__run() void {
         blinkF.post();
@@ -40,3 +40,13 @@ pub const EM__TARG = struct {
         blinkF.post();
     }
 };
+
+//->> zigem publish #|99ef5f2a8bbc19378d65f1eec42048227158abf59a2c06a2b8a313d7f1f5f08c|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+
+//->> EM__TARG publics
+pub const blinkFB = EM__TARG.blinkFB;

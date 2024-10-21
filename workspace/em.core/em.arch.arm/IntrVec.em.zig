@@ -9,7 +9,7 @@ pub const EM__CONFIG = struct {
 
 export fn DEFAULT_isr() void {
     if (em.IS_META) return;
-    em__U.scope().defaultIsr();
+    EM__TARG.defaultIsr();
 }
 
 pub const EM__META = struct {
@@ -19,15 +19,7 @@ pub const EM__META = struct {
 
     const NO_VEC = "<NA>";
 
-    pub fn addIntrH(name: []const u8) void {
-        name_tab.add(name);
-    }
-
-    pub fn useIntrH(name: []const u8) void {
-        used_tab.add(name);
-    }
-
-    pub fn em__initH() void {
+    pub fn em__initM() void {
         const core_intrs = [_][]const u8{
             "NMI",
             "HardFault",
@@ -45,17 +37,17 @@ pub const EM__META = struct {
             "SysTick",
         };
         for (core_intrs) |n| {
-            addIntrH(n);
+            EM__META.addIntrM(n);
         }
     }
 
-    pub fn em__generateH() void {
-        var sbuf = em.StringH{};
-        for (name_tab.items()) |n| {
+    pub fn em__generateM() void {
+        var sbuf = em.StringM{};
+        for (name_tab.itemsM()) |n| {
             if (em.std.mem.eql(u8, n, NO_VEC)) continue;
-            sbuf.add(em.sprint("#define __{s}_isr _DEFAULT_isr\n", .{n}));
+            sbuf.addM(em.sprint("#define __{s}_isr _DEFAULT_isr\n", .{n}));
         }
-        sbuf.add(
+        sbuf.addM(
             \\
             \\extern void DEFAULT_isr( void );
             \\void _DEFAULT_isr( void ) {
@@ -64,17 +56,17 @@ pub const EM__META = struct {
             \\
             \\
         );
-        sbuf.add("// used\n");
-        for (used_tab.items()) |n| {
+        sbuf.addM("// used\n");
+        for (used_tab.itemsM()) |n| {
             if (em.std.mem.eql(u8, n, NO_VEC)) continue;
-            sbuf.add(em.sprint(
+            sbuf.addM(em.sprint(
                 \\#undef __{s}_isr
                 \\#define __{0s}_isr {0s}_isr
                 \\void {0s}_isr( void ) __attribute__((weak, alias("_DEFAULT_isr")));
                 \\
             , .{n}));
         }
-        sbuf.add(
+        sbuf.addM(
             \\
             \\#include <stdbool.h>
             \\#include <stdint.h>
@@ -92,12 +84,20 @@ pub const EM__META = struct {
             \\    { .fxn = em__start },
             \\
         );
-        for (name_tab.items()) |n| {
+        for (name_tab.itemsM()) |n| {
             const s = if (em.std.mem.eql(u8, n, NO_VEC)) "0" else em.sprint("__{s}_isr", .{n});
-            sbuf.add(em.sprint("    {s},\n", .{s}));
+            sbuf.addM(em.sprint("    {s},\n", .{s}));
         }
-        sbuf.add("};\n");
-        em.writeFile(em.out_root, "intr.c", sbuf.get());
+        sbuf.addM("};\n");
+        em.writeFile(em.out_root, "intr.c", sbuf.getM());
+    }
+
+    pub fn addIntrM(name: []const u8) void {
+        name_tab.addM(name);
+    }
+
+    pub fn useIntrM(name: []const u8) void {
+        used_tab.addM(name);
     }
 };
 
@@ -110,7 +110,7 @@ pub const EM__TARG = struct {
         hal.SCB.*.VTOR = @intFromPtr(&__vector_table);
     }
 
-    pub fn defaultIsr() void {
+    fn defaultIsr() void {
         const vnum: u8 = @intCast(get_IPSR());
         em.@"%%[b:]"(3);
         em.@"%%[>]"(vnum);
@@ -127,16 +127,26 @@ pub const EM__TARG = struct {
         );
         return res;
     }
-
-    //    auto vecNum = <uint32>(^^__get_IPSR()^^)
-    //    %%[b:4]
-    //    %%[><uint8>vecNum]
-    //    auto frame = <uint32[]>(^^__get_MSP()^^)
-    //    %%[><uint32>&frame[0]]
-    //    for auto i = 0; i < 8; i++
-    //        %%[b]
-    //        %%[>frame[i]]
-    //    end
-    //    fail
-
 };
+
+//    auto vecNum = <uint32>(^^__get_IPSR()^^)
+//    %%[b:4]
+//    %%[><uint8>vecNum]
+//    auto frame = <uint32[]>(^^__get_MSP()^^)
+//    %%[><uint32>&frame[0]]
+//    for auto i = 0; i < 8; i++
+//        %%[b]
+//        %%[>frame[i]]
+//    end
+//    fail
+
+//->> zigem publish #|24a8465cad4c5c963349d5271cd50739e6bfe5ca3ef4f67f2a67a6d420dc2cd2|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+pub const addIntrM = EM__META.addIntrM;
+pub const useIntrM = EM__META.useIntrM;
+
+//->> EM__TARG publics

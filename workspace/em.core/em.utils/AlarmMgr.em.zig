@@ -4,107 +4,111 @@ pub const em__C = em__U.config(EM__CONFIG);
 
 pub const EM__CONFIG = struct {
     AlarmOF: em.Factory(Alarm),
-    WakeupTimer: em.Proxy(em.import.@"em.hal/WakeupTimerI"),
+    WakeupTimer: em.Proxy(WakeupTimerI),
 };
 
-pub const EpochTime = em.import.@"em.utils/EpochTime";
 pub const FiberMgr = em.import.@"em.utils/FiberMgr";
+pub const TimeTypes = em.import.@"em.utils/TimeTypes";
+pub const WakeupTimerI = em.import.@"em.hal/WakeupTimerI";
 
 pub const Obj = em.Obj(Alarm);
 
 pub const Alarm = struct {
-    const Self = @This();
     _fiber: FiberMgr.Obj,
-    _thresh: u32 = 0,
-    _ticks: u32 = 0,
-    pub fn active(self: *Self) bool {
-        em__U.scope().Alarm_active(self);
+    _thresh: Thresh = 0, // opaque alarm time
+    _dt_secs: Secs24p8 = 0, // time remaining until alarm (0 == alarm inactive)
+    pub fn cancel(self: *Alarm) void {
+        EM__TARG.Alarm_cancel(self);
     }
-    pub fn cancel(self: *Self) void {
-        em__U.scope().Alarm_cancel(self);
+    pub fn isActive(self: *Alarm) bool {
+        EM__TARG.Alarm_isActive(self);
     }
-    pub fn wakeup(self: *Self, secs256: u32) void {
-        em__U.scope().Alarm_wakeup(self, secs256);
+    pub fn wakeup(self: *Alarm, delta: Secs24p8) void {
+        EM__TARG.Alarm_wakeup(self, delta);
     }
-    pub fn wakeupAt(self: *Self, secs256: u32) void {
-        em__U.scope().Alarm_wakeupAt(self, secs256);
+    pub fn wakeupAligned(self: *Alarm, delta: Secs24p8) void {
+        EM__TARG.Alarm_wakeupAligned(self, delta);
     }
 };
 
+const Secs24p8 = TimeTypes.Secs24p8;
+const Thresh = WakeupTimerI.Thresh;
+
 pub const EM__META = struct {
     //
-    pub const WakeupTimer = em__C.WakeupTimer;
+    pub const x_WakeupTimer = em__C.WakeupTimer;
 
-    pub fn createH(fiber: FiberMgr.Obj) Obj {
-        const alarm = em__C.AlarmOF.createH(.{ ._fiber = fiber });
+    pub fn createM(fiber: FiberMgr.Obj) Obj {
+        const alarm = em__C.AlarmOF.createM(.{ ._fiber = fiber });
         return alarm;
     }
 };
 
 pub const EM__TARG = struct {
     //
-    const WakeupTimer = em__C.WakeupTimer.scope();
+    const WakeupTimer = em__C.WakeupTimer.unwrap();
 
     var cur_alarm: ?*Alarm = null;
 
-    fn findNextAlarm(delta_ticks: u32) void {
+    fn dispatch(delta: Secs24p8) void {
         WakeupTimer.disable();
-        const alarm_tab = em__C.AlarmOF;
+        const alarm_tab = em__C.AlarmOF.items();
         var nxt_alarm: ?*Alarm = null;
-        var max_ticks = ~@as(u32, 0); // largest u32
+        var max_dt_secs = ~@as(Secs24p8, 0);
         for (0..alarm_tab.len) |idx| {
-            var a = &alarm_tab[idx];
-            a._ticks -|= delta_ticks;
-            if (a._ticks > 0 and a._ticks < max_ticks) {
+            const a = &alarm_tab[idx];
+            if (a._dt_secs == 0) continue; // inactive
+            a._dt_secs -|= delta;
+            if (a._dt_secs == 0) {
+                a._fiber.post(); // ring the alarm
+                continue; // inactive
+            }
+            if (a._dt_secs < max_dt_secs) {
                 nxt_alarm = a;
-                max_ticks = a._ticks;
+                max_dt_secs = a._dt_secs;
             }
         }
         cur_alarm = nxt_alarm;
-        if (cur_alarm != null) {
-            WakeupTimer.enable(cur_alarm.?._thresh, &wakeupHandler);
+        if (cur_alarm) |ca| {
+            WakeupTimer.enable(ca._thresh, &wakeupHandler);
         }
     }
 
-    fn wakeupHandler(_: WakeupTimer.HandlerArg) void {
-        const alarm_tab = em__C.AlarmOF;
-        const thresh: u32 = cur_alarm.?._thresh;
-        for (0..alarm_tab.len) |idx| {
-            var a = &alarm_tab[idx];
-            // TODO: The check below doesn't take wrap of thresh into account.
-            if (a._ticks > 0 and a._thresh <= thresh) { // expired alarm, ring it
-                a._ticks = 0;
-                a._fiber.post();
-            }
-        }
-        findNextAlarm(cur_alarm.?._ticks);
+    fn setup(alarm: *Alarm, delta: Secs24p8) void {
+        alarm._thresh = WakeupTimer.secsToThresh(delta);
+        alarm._dt_secs = delta;
+        dispatch(0);
     }
 
-    pub fn Alarm_cancel(alarm: *Alarm) void {
-        alarm._ticks = 0;
-        findNextAlarm(0);
+    fn wakeupHandler(_: WakeupTimerI.HandlerArg) void {
+        dispatch(cur_alarm.?._dt_secs);
     }
 
-    pub fn Alarm_isActive(alarm: *Alarm) bool {
-        return alarm.ticks != 0;
+    fn Alarm_cancel(alarm: *Alarm) void {
+        alarm._dt_secs = 0;
+        dispatch(0);
     }
 
-    fn Alarm_setup(alarm: *Alarm, ticks: u32) void {
-        alarm._thresh = WakeupTimer.ticksToThresh(ticks);
-        alarm._ticks = ticks;
-        findNextAlarm(0);
+    fn Alarm_isActive(alarm: *Alarm) bool {
+        return alarm._dt_secs != 0;
     }
 
-    pub fn Alarm_wakeup(alarm: *Alarm, secs256: u32) void {
-        const ticks = WakeupTimer.secs256ToTicks(secs256);
-        Alarm_setup(alarm, ticks);
+    fn Alarm_wakeup(alarm: *Alarm, delta: Secs24p8) void {
+        setup(alarm, delta);
     }
 
-    pub fn Alarm_wakeupAt(alarm: *Alarm, secs256: u32) void {
-        var et_subs: u32 = undefined;
-        const et_secs = EpochTime.getCurrent(&et_subs);
-        const et_ticks = WakeupTimer.timeToTicks(et_secs, et_subs);
-        const ticks = WakeupTimer.secs256ToTicks(secs256);
-        Alarm_setup(alarm, ticks - (et_ticks % ticks));
+    fn Alarm_wakeupAligned(alarm: *Alarm, delta: Secs24p8) void {
+        setup(alarm, WakeupTimer.secsAligned(delta));
     }
 };
+
+//->> zigem publish #|66b374ea91c6a7ba63df04b805bc28b1913b45720eb1975af352ca5b3c67e963|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+pub const x_WakeupTimer = EM__META.x_WakeupTimer;
+pub const createM = EM__META.createM;
+
+//->> EM__TARG publics

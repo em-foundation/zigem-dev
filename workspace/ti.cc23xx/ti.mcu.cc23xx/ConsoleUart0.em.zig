@@ -1,33 +1,34 @@
 pub const em = @import("../../zigem/em.zig");
-pub const em__U = em.module(@This(), .{
-    .inherits = em.import.@"em.hal/ConsoleUartI",
-});
+pub const em__U = em.module(@This(), .{ .inherits = ConsoleUartI });
 pub const em__C = em__U.config(EM__CONFIG);
 
-pub const EM__CONFIG = struct {
-    TxPin: em.Proxy(em.import.@"em.hal/GpioI"),
-};
-
+pub const ConsoleUartI = em.import.@"em.hal/ConsoleUartI";
 pub const Idle = em.import.@"ti.mcu.cc23xx/Idle";
+pub const GpioI = em.import.@"em.hal/GpioI";
+
+pub const EM__CONFIG = struct {
+    TxPin: em.Proxy(GpioI),
+};
 
 pub const EM__META = struct {
     //
-    pub const TxPin = em__C.TxPin;
+    pub const x_TxPin = em__C.TxPin;
 
-    pub fn em__configureH() void {
-        Idle.addSleepEnterCbH(em__U.fxn("sleepEnter", Idle.SleepCbArg));
-        Idle.addSleepLeaveCbH(em__U.fxn("sleepLeave", Idle.SleepCbArg));
+    pub fn em__configureM() void {
+        Idle.addSleepEnterCbM(em__U.fxn("sleepEnter", Idle.SleepCbArg));
+        Idle.addSleepLeaveCbM(em__U.fxn("sleepLeave", Idle.SleepCbArg));
     }
 };
 
 pub const EM__TARG = struct {
     //
+    const TxPin = em__C.TxPin.unwrap();
+
     const hal = em.hal;
     const reg = em.reg;
-    const TxPin = em__C.TxPin.scope();
 
     pub fn em__startup() void {
-        sleepLeave(.{});
+        EM__TARG.sleepLeave(.{});
     }
 
     pub fn flush() void {
@@ -36,7 +37,7 @@ pub const EM__TARG = struct {
 
     pub fn put(data: u8) void {
         reg(hal.UART0_BASE + hal.UART_O_DR).* = data;
-        flush();
+        EM__TARG.flush();
     }
 
     pub fn sleepEnter(_: Idle.SleepCbArg) void {
@@ -56,3 +57,17 @@ pub const EM__TARG = struct {
         reg(hal.UART0_BASE + hal.UART_O_CTL).* |= hal.UART_CTL_UARTEN;
     }
 };
+
+//->> zigem publish #|23088d3ec420f88e5f8d765e10272b527e8cc26ccc99921b9682990d886ace75|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+pub const x_TxPin = EM__META.x_TxPin;
+
+//->> EM__TARG publics
+pub const flush = EM__TARG.flush;
+pub const put = EM__TARG.put;
+pub const sleepEnter = EM__TARG.sleepEnter;
+pub const sleepLeave = EM__TARG.sleepLeave;

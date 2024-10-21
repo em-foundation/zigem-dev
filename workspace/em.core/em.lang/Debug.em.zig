@@ -13,18 +13,19 @@ const Common = em.import.@"em.mcu/Common";
 const GpioI = em.import.@"em.hal/GpioI";
 
 pub const EM__META = struct {
-    pub const DbgA = em__C.DbgA;
-    pub const DbgB = em__C.DbgB;
-    pub const DbgC = em__C.DbgC;
-    pub const DbgD = em__C.DbgD;
+    //
+    pub const x_DbgA = em__C.DbgA;
+    pub const x_DbgB = em__C.DbgB;
+    pub const x_DbgC = em__C.DbgC;
+    pub const x_DbgD = em__C.DbgD;
 };
 
 pub const EM__TARG = struct {
     //
-    const DbgA = em__C.DbgA.scope();
-    const DbgB = em__C.DbgB.scope();
-    const DbgC = em__C.DbgC.scope();
-    const DbgD = em__C.DbgD.scope();
+    const DbgA = em__C.DbgA.unwrap();
+    const DbgB = em__C.DbgB.unwrap();
+    const DbgC = em__C.DbgC.unwrap();
+    const DbgD = em__C.DbgD.unwrap();
 
     fn delay() void {
         Common.BusyWait.wait(1);
@@ -39,7 +40,7 @@ pub const EM__TARG = struct {
             else => 0,
         };
         for (0..k + 1) |_| {
-            pulse(id);
+            EM__TARG.pulse(id);
         }
     }
 
@@ -47,13 +48,13 @@ pub const EM__TARG = struct {
         getDbg(id).set();
     }
 
-    fn getDbg(comptime id: u8) type {
+    fn getDbg(comptime id: u8) GpioI.EM__SPEC {
         switch (id) {
             'A' => return DbgA,
             'B' => return DbgB,
             'C' => return DbgC,
             'D' => return DbgD,
-            else => return GpioI,
+            else => return GpioI.EM__SPEC,
         }
     }
 
@@ -94,3 +95,22 @@ pub const EM__TARG = struct {
         Dbg.set();
     }
 };
+
+//->> zigem publish #|e0466044edba7fbe70926aad54f46c38fd937ce9b399f863d341dc4675c5d3cd|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+pub const x_DbgA = EM__META.x_DbgA;
+pub const x_DbgB = EM__META.x_DbgB;
+pub const x_DbgC = EM__META.x_DbgC;
+pub const x_DbgD = EM__META.x_DbgD;
+
+//->> EM__TARG publics
+pub const mark = EM__TARG.mark;
+pub const minus = EM__TARG.minus;
+pub const plus = EM__TARG.plus;
+pub const pulse = EM__TARG.pulse;
+pub const reset = EM__TARG.reset;
+pub const startup = EM__TARG.startup;

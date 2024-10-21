@@ -1,23 +1,35 @@
 # Installation
 
-## Pre-requisites
+These installation instructions contain example commands used in an Ubuntu Linux environment.  Similar operations will work for Windows / MacOS, and we will add them here over time.
 
-### Required PC Hardware / Operating System
+ZigEm is focused on low-power, small-code operation.  As such, we run it on a tiny wireless chip (the Texas Instruments CC2340) to demonstrate its effectiveness.  Programs written are cross-compiled for the CC2340, and loaded onto the CC2340 chip for operation.  We use a TI LaunchPad for the CC2340 chip as the evaluation hardware.  The LaunchPad includes the CC2340 along with a Bluetooth 5.0 radio, a serial UART, two LEDs (red and green), and a push-button.  ZigEm uses these devices in addition to the processor itself.
+
+Please visit the ZigEm blog: https://blog.zigem.tech/ for much more information and insight.
+
+## Pre-requisite Requirements
+
+### PC Hardware / Operating System
 
 ZigEm requires one of three different PC / Operating Systems for development, compilation, etc.  Only 64-bit x86 architectures are supported.  And only Ubuntu, MacOS and Windows are supported.
 
-### Required Embedded Hardware
+### Git
+
+If using a Windows PC, you'll need to download and install `Git for Windows` (https://git-scm.com/download/win) and use a `git bash` window to do the below.
+
+For MacOS or Linux, bash is included, but you'll need to be sure that `git` is installed.
+
+### Embedded Hardware
 
 ZigEm requires that you purchase the following two items from Texas Instruments (or one of their distributors e.g. Arrow, DigiKey, Mouser).
 
 In the future we may support additional hardware.  But for now, the only way to run ZigEm programs is on the hardware specified below.
 
-Note:  If you already own an XDS110 Debugger, it may be configured to work with the LaunchPad.  We are suggesting the XDS110ET because it is the simplest connection and best suited to this job.
+Note:  The XDS110-style debugger called out below is available in other forms; sometimes as part of a different LaunchPad board, and sometimes stand-alone.  If you already own an XDS110 Debugger, it may be configured to work with the CC2340R5 LaunchPad.  We are suggesting the XDS110ET model because it is the simplest connection.  Using another XDS110 debugger can be done but will likely require jumper wires rather than the simple connector used herein.
 
 | Item                           | TI part number | Price (approx) | Links to purchase from TI              |
 | ------------------------------ | -------------- | -------------- | -------------------------------------- |
-| TI CC2340R5 LauncPad board     | LP-EM-CC2340R5 | $30            | https://www.ti.com/tool/LP-EM-CC2340R5 |
-| TI XDS110ET LaunchPad debugger | LP-XDS110ET    | $50            | https://www.ti.com/tool/LP-XDS110ET    |
+| TI CC2340R5 LaunchPad board    | LP-EM-CC2340R5 | $30            | https://www.ti.com/tool/LP-EM-CC2340R5 |
+| TI XDS110ET debugger           | LP-XDS110ET    | $50            | https://www.ti.com/tool/LP-XDS110ET    |
 
 These two pieces of hardware are the only two things that need to be purchased.  Everything else needed for ZigEm is available at no cost.
 
@@ -41,8 +53,6 @@ source $HOME/.bashrc
 ## Clone ZigEm git repository
 
 - Clone the ZigEm repo into a folder
-
-Note:  Under Windows OS, you'll need to install `Git for Windows` (https://git-scm.com/download/win) and use a `git bash` window to do the below.
 
 An example on Ubuntu; yours may vary:
 
@@ -77,6 +87,8 @@ The ZigEm VScode Extension is not yet available in the VScode marketplace.  As a
 
 - In lower left:  Settings => Command Pallette... => Extensions: Install from vsix...
 - In file explorer pop-up, navigate to the `zig-out/tools` folder and select the supplied `vscode-zigem-<version>.vsix` file
+
+Note:  Because the extension is supplied as a .vsix file (rather than from the marketplace), it will not automatically prompt when an update comes out.  We don't expect there to be frequent updates.  However, every now and then you may want to check the `zig-out/tools` folder and repeat the above procedure if a newer version comes available.
 
 ## Install the Texas Instruments LaunchPad hardware
 
@@ -128,3 +140,15 @@ zigem compile --load --file em.core/em.examples.basic/BlinkerP.em.zig
 There are about a dozen additional example programs that can be run now as well.
 
 Please consult additional ZigEm documentation and see https://blog.zigem.tech/ for more information.
+
+## Just in case you want to clean out the installation
+
+ZigEm and Zig maintain caches of previously downloaded / installed / built items.  This allows for speedy operation.
+
+If however for whatever reason you would like to "clean out" the caches, we have provided a bash script that will either do a _shallow_ or a _deep_ clean.
+
+Usage:  `clean.sh [-d, --deep]`
+
+Without the `-d` or `--deep` option, the clean script will clean the workspace folder only; removing remnants of prior `zigem compile` commands.
+
+With the deep cleaning option, the clean script will also clean out the remants of the prior `zig build` command.

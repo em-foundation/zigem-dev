@@ -9,4 +9,4 @@ workspace/zigem
 workspace/.gen
 workspace/.out
 workspace/.main-*.zig
-workspace/.zigem-main.zig
+workspace/.zigem-*.zig

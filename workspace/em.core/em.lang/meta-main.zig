@@ -8,8 +8,12 @@ var used_set = std.StringHashMap(void).init(em.getHeap());
 inline fn callAll(comptime fname: []const u8, ulist: []const em.Unit, filter_used: bool) void {
     inline for (ulist) |u| {
         if (!filter_used or used_set.contains(u.upath)) {
-            const Scope = u.scope();
-            if (@hasDecl(Scope, fname)) _ = @call(.auto, @field(Scope, fname), .{});
+            const U = u.scope();
+            if (@hasDecl(U, fname)) {
+                _ = @call(.auto, @field(U, fname), .{});
+            } else if (@hasDecl(U, "EM__META") and @hasDecl(U.EM__META, fname)) {
+                _ = @call(.auto, @field(U.EM__META, fname), .{});
+            }
         }
     }
 }
@@ -19,13 +23,12 @@ pub fn exec(top: em.Unit) !void {
     @setEvalBranchQuota(100_000);
     const ulist_bot = mkUnitList(top, mkUnitList(BuildH.em__U, &.{}));
     const ulist_top = revUnitList(ulist_bot);
-    callAll("em__initH", ulist_bot, false);
-    callAll("em__configureH", ulist_top, false);
+    callAll("em__initM", ulist_bot, false);
+    callAll("em__configureM", ulist_top, false);
     try mkUsedSet(top);
     try mkUsedSet(BuildH.em__U);
-    callAll("em__constructH", ulist_top, false);
-    callAll("em__generateH", ulist_top, false);
-    try genDomain();
+    callAll("em__constructM", ulist_top, false);
+    callAll("em__generateM", ulist_top, false);
     try genTarg(top, ulist_bot, ulist_top);
     std.process.exit(0);
 }
@@ -33,10 +36,13 @@ pub fn exec(top: em.Unit) !void {
 fn genCall(comptime fname: []const u8, ulist: []const em.Unit, mode: enum { all, first }, out: std.fs.File.Writer) !void {
     inline for (ulist) |u| {
         const U = u.resolve();
-        if (@hasDecl(U, "EM__TARG") and @hasDecl(U.EM__TARG, fname)) {
+        comptime var pre_o: ?[]const u8 = null;
+        if (@hasDecl(U, fname)) pre_o = "";
+        if (@hasDecl(U, "EM__TARG") and @hasDecl(U.EM__TARG, fname)) pre_o = "EM__TARG.";
+        if (pre_o) |pre| {
             try out.print("    ", .{});
             try genImport(u.upath, out);
-            try out.print(".{s}();\n", .{fname});
+            try out.print(".{s}{s}();\n", .{ pre, fname });
             if (mode == .first) break;
         }
     }
@@ -49,36 +55,15 @@ fn genConfig(unit: em.Unit, out: std.fs.File.Writer) !void {
     const cti = @typeInfo(@TypeOf(C));
     inline for (cti.Struct.fields) |fld| {
         const cfld = @field(C, fld.name);
-        try out.print("{s}", .{em.toStringPre(cfld, unit.upath, fld.name)});
+        try out.print("{s}", .{em.em__F_toStringPre(cfld, unit.upath, fld.name)});
     }
-    //inline for (cti.Struct.fields) |fld| {
-    //    // const fti = @typeInfo(@TypeOf(fld.type));
-    //    if (!em.std.mem.eql(u8, fld.name, "em__upath")) {
-    //        const cfld = @field(C, fld.name);
-    //        em.print("{s} {x}", .{ fld.name, (@intFromPtr(cfld)) });
-    //        //if (@typeInfo(@TypeOf(cfld.*)) == .Struct and @hasDecl(@TypeOf(cfld.*), "toStringDecls")) {
-    //        //    try out.print("{s}", .{cfld.toStringDecls(unit.upath, fld.name)});
-    //        //}
-    //    }
-    //}
     const cfgpath = if (!unit.generated) unit.upath else mkConfigPath(@typeName(@TypeOf(C)));
     try out.print("pub const @\"{s}__config\" = em.import.@\"{s}\".EM__CONFIG{{\n", .{ unit.upath, cfgpath });
     inline for (cti.Struct.fields) |fld| {
         const cfld = @field(C, fld.name);
-        try out.print("    .{s} = {s},\n", .{ fld.name, em.toStringAux(cfld) });
+        try out.print("    .{s} = {s},\n", .{ fld.name, em.em__F_toStringAux(cfld) });
     }
     try out.print("}};\n", .{});
-}
-
-fn genDomain() !void {
-    const file = try std.fs.createFileAbsolute(em._domain_file, .{});
-    const out = file.writer();
-    try out.print(
-        \\pub const Domain = enum {{META, TARG}};
-        \\pub const DOMAIN: Domain = .TARG;
-        \\
-    , .{});
-    file.close();
 }
 
 fn genImport(path: []const u8, out: std.fs.File.Writer) !void {
@@ -145,7 +130,7 @@ fn genTarg(cur_top: em.Unit, ulist_bot: []const em.Unit, ulist_top: []const em.U
     try out.print("    asm volatile (\"__em__run:\");\n", .{});
     try out.print("    ", .{});
     try genImport(cur_top.upath, out);
-    try out.print(".em__run();\n", .{});
+    try out.print(".EM__TARG.em__run();\n", .{});
     try out.print("    em__halt();\n", .{});
     try out.print("}}\n", .{});
     file.close();

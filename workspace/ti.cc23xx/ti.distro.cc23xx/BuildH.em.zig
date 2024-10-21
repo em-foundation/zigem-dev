@@ -8,9 +8,7 @@ pub const IntrVec = em.import.@"em.arch.arm/IntrVec";
 pub const LinkerH = em.import.@"em.build.misc/LinkerH";
 pub const StartupH = em.import.@"em.arch.arm/StartupH";
 
-pub const EM__META = struct {};
-
-pub fn em__configureH() void {
+pub fn em__configureM() void {
     const nvic_intrs = [_][]const u8{
         "CPUIRQ0",
         "CPUIRQ1",
@@ -33,6 +31,11 @@ pub fn em__configureH() void {
         "LGPT3_COMB",
     };
     for (nvic_intrs) |n| {
-        IntrVec.addIntrH(n);
+        IntrVec.addIntrM(n);
     }
 }
+
+//->> zigem publish #|943e41e45af33391ef31430f8526732013cb4807be3ae021510dba1db6c3c615|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted

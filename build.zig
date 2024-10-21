@@ -19,6 +19,8 @@ pub fn build(b: *std.Build) void {
         exe.root_module.addImport(name, dep.module(name));
     }
 
+    exe.root_module.addImport("zls", b.dependency("zls-em", .{}).module("zls"));
+
     const chmod_step = b.addSystemCommand(&.{ "chmod", "-R", "777", "zig-out/tools" });
     exe.step.dependOn(&chmod_step.step);
 

@@ -8,6 +8,7 @@ const Props = @import("./Props.zig");
 const makefile_txt = @embedFile("./makefile.txt");
 
 pub const Mode = enum {
+    CHECK,
     CLEAN,
     COMPILE,
     REFRESH,
@@ -34,6 +35,7 @@ pub fn activate(params: ActivateParams) !void {
     build_root = Fs.slashify(Fs.join(&.{ work_root, "zigem" }));
     gen_root = build_root;
     out_root = Fs.slashify(Fs.join(&.{ build_root, "out" }));
+    if (cur_mode == .CHECK) return;
     Fs.delete(build_root);
     Fs.delete(Fs.slashify(Fs.join(&.{ work_root, ZIGEM_MAIN })));
     if (cur_mode == .CLEAN) {
@@ -54,6 +56,11 @@ pub fn activate(params: ActivateParams) !void {
     try Props.addPackage(getDistroPkg());
 }
 
+pub fn doCheck(upath: []const u8) !void {
+    Fs.chdir(work_root);
+    try genCheckUnit(mkUname(upath));
+}
+
 pub fn doBuild(upath: []const u8) !void {
     const uname = mkUname(upath);
     try genStub("meta", uname);
@@ -61,6 +68,7 @@ pub fn doBuild(upath: []const u8) !void {
 }
 
 pub fn doRefresh() !void {
+    try genCheckStub();
     try genEmStub();
     try genMakefile();
     try genProps();
@@ -69,16 +77,68 @@ pub fn doRefresh() !void {
     try genUnits();
 }
 
-fn genDomain() !void {
-    var file = try Out.open(Fs.join(&.{ gen_root, "domain.zig" }));
-    file.print(
-        \\pub const Domain = enum {{META, TARG}};
-        \\pub const DOMAIN: Domain = .META;
+fn genCheckStub() !void {
+    var file = try Out.open(Fs.join(&.{ work_root, ".zigem-check.zig" }));
+    const txt =
+        \\// GENERATED FILE -- do not edit!!!
         \\
-    , .{});
+        \\const em = @import("./zigem/em.zig");
+        \\const domain_desc = @import("zigem/domain.zig");
+        \\const uname = @import("zigem/check-unit.zig").uname;
+        \\const U = @field(em.import, uname);
+        \\
+        \\test "main" {
+        \\    switch (domain_desc.DOMAIN) {
+        \\        .META => {
+        \\            if (@hasDecl(U, "EM__META")) em.std.testing.refAllDecls(U.EM__META);
+        \\        },
+        \\        .TARG_CHECK => {
+        \\            if (@hasDecl(U, "EM__TARG")) em.std.testing.refAllDecls(U.EM__TARG);
+        \\        },
+        \\        .TARG => {},
+        \\    }
+        \\}
+    ;
+    file.print("{s}", .{txt});
     file.close();
+}
+
+fn genCheckUnit(uname: []const u8) !void {
+    var file = try Out.open(Fs.join(&.{ gen_root, "check-unit.zig" }));
+    file.print(
+        \\pub const uname = "{s}";
+    , .{uname});
+    file.close();
+}
+
+fn genDomain() !void {
+    const domains = &.{ "META", "TARG", "TARG_CHECK" };
+    inline for (domains) |dom| {
+        var file = try Out.open(Fs.join(&.{ gen_root, "domain-" ++ dom ++ ".zig" }));
+        file.print(
+            \\pub const Domain = enum {{META, TARG, TARG_CHECK}};
+            \\pub const DOMAIN: Domain = .{s};
+            \\
+        , .{dom});
+        file.close();
+    }
+    // var file = try Out.open(Fs.join(&.{ gen_root, "domain-meta.zig" }));
+    // file.print(
+    //     \\pub const Domain = enum {{META, TARG}};
+    //     \\pub const DOMAIN: Domain = .META;
+    //     \\
+    // , .{});
+    // file.close();
+    // //
+    // file = try Out.open(Fs.join(&.{ gen_root, "domain-targ.zig" }));
+    // file.print(
+    //     \\pub const Domain = enum {{META, TARG}};
+    //     \\pub const DOMAIN: Domain = .TARG;
+    //     \\
+    // , .{});
+    // file.close();
     //
-    file = try Out.open(Fs.join(&.{ gen_root, "meta.zig" }));
+    var file = try Out.open(Fs.join(&.{ gen_root, "meta.zig" }));
     file.close();
     //
     file = try Out.open(Fs.join(&.{ gen_root, "targ.zig" }));
@@ -113,7 +173,6 @@ fn genMain() !void {
     const txt =
         \\// GENERATED FILE -- do not edit!!!
         \\
-        \\pub usingnamespace @import("zigem/em.zig");
         \\const domain_desc = @import("zigem/domain.zig");
         \\
         \\pub fn main() void {
@@ -142,7 +201,7 @@ fn genProps() !void {
 
 fn genStub(kind: []const u8, uname: []const u8) !void {
     // zigem/<kind>.zig
-    const fn1 = try sprint("{s}.zig", .{kind});
+    const fn1 = Out.sprint("{s}.zig", .{kind});
     var file = try Out.open(Fs.join(&.{ gen_root, fn1 }));
     const fmt =
         \\const em = @import("./em.zig");
@@ -180,11 +239,12 @@ fn genUnits() !void {
                 if (ent2.kind != .file) continue;
                 const idx = std.mem.indexOf(u8, ent2.name, ".em.zig");
                 if (idx == null) continue;
-                file.print("pub const @\"{0s}/{1s}\" = em.unitScope(@import(\"../{2s}/{0s}/{3s}\"));\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
-                const tn = try sprint("{s}.{s}.{s}.em", .{ pkgname, buckname, ent2.name[0..idx.?] });
-                const un = try sprint("{s}/{s}", .{ buckname, ent2.name[0..idx.?] });
+                file.print("pub const @\"{0s}/{1s}\" = @import(\"../{2s}/{0s}/{3s}\");\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
+                const tn = Out.sprint("{s}.{s}.{s}.em", .{ pkgname, buckname, ent2.name[0..idx.?] });
+                const un = Out.sprint("{s}/{s}", .{ buckname, ent2.name[0..idx.?] });
                 try type_map.put(tn, un);
-                if (is_distro) file.print("pub const @\"em__distro/{1s}\" = em.unitScope(@import(\"../{2s}/{0s}/{3s}\"));\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
+                if (!is_distro) continue;
+                file.print("pub const @\"em__distro/{1s}\" = @import(\"../{2s}/{0s}/{3s}\");\n", .{ buckname, ent2.name[0..idx.?], pkgname, ent2.name });
             }
         }
     }
@@ -238,8 +298,4 @@ fn mkUname(upath: []const u8) []const u8 {
     const idx = std.mem.indexOf(u8, upath, ".em.zig");
     if (idx == null) return upath;
     return upath[0..idx.?];
-}
-
-fn sprint(comptime fmt: []const u8, args: anytype) ![]const u8 {
-    return try std.fmt.allocPrint(Heap.get(), fmt, args);
 }

@@ -5,6 +5,8 @@ const fs = std.fs;
 
 const Heap = @import("./Heap.zig");
 
+const MAX_BYTES = 100_000;
+
 pub fn basename(path: []const u8) []const u8 {
     return fs.path.basename(path);
 }
@@ -58,14 +60,14 @@ pub fn openFile(path: []const u8) fs.File {
 pub fn readFile(path: []const u8) []const u8 {
     const file = openFile(path);
     defer file.close();
-    const buf = file.readToEndAlloc(Heap.get(), 1000) catch fatal("Path.readFile: {s}", .{path});
+    const buf = file.readToEndAlloc(Heap.get(), MAX_BYTES) catch fatal("Path.readFile: {s}", .{path});
     return buf;
 }
 
 pub fn readFileZ(path: []const u8) [:0]const u8 {
     const file = openFile(path);
     defer file.close();
-    const buf = file.readToEndAllocOptions(Heap.get(), 1000, null, @alignOf(u8), 0) catch fatal("Path.readFile", .{});
+    const buf = file.readToEndAllocOptions(Heap.get(), MAX_BYTES, null, @alignOf(u8), 0) catch fatal("Path.readFile", .{});
     return buf;
 }
 

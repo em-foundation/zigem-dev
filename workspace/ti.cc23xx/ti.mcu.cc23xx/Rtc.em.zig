@@ -1,18 +1,18 @@
 pub const em = @import("../../zigem/em.zig");
 pub const em__U = em.module(@This(), .{});
-pub const em__C = em__U.config(EM__CONFIG);
-
-pub const EM__CONFIG = struct {};
 
 pub const IntrVec = em.import.@"em.arch.arm/IntrVec";
+pub const TimeTypes = em.import.@"em.utils/TimeTypes";
 
 pub const EM__META = struct {
-    pub fn em__constructH() void {
-        IntrVec.useIntrH("CPUIRQ0");
+    //
+    pub fn em__constructM() void {
+        IntrVec.useIntrM("CPUIRQ0");
     }
 };
 
 pub const EM__TARG = struct {
+    //
     const Handler = struct {};
 
     const hal = em.hal;
@@ -21,7 +21,7 @@ pub const EM__TARG = struct {
     const MSECS_SCALAR: u16 = 1000 / 8;
     const RES_BITS: u8 = 20;
 
-    var cur_handler: em.Fxn(Handler) = null;
+    var cur_handler: em.Fxn_T(Handler) = null;
 
     pub fn em__startup() void {
         reg(hal.CKMD_BASE + hal.CKMD_O_LFINCOVR).* = 0x80000000 + (1 << RES_BITS);
@@ -41,12 +41,7 @@ pub const EM__TARG = struct {
         reg(hal.RTC_BASE + hal.RTC_O_IMSET).* = hal.RTC_IMSET_EV0;
     }
 
-    pub fn getMsecs() u32 {
-        const ticks = reg(hal.RTC_BASE + hal.RTC_O_TIME8U).*;
-        return (ticks * MSECS_SCALAR) >> (RES_BITS - 7);
-    }
-
-    pub fn getRaw(o_subs: *u32) u32 {
+    pub fn getRawTime() TimeTypes.RawTime {
         var lo: u32 = undefined;
         var hi: u32 = undefined;
         while (true) {
@@ -54,21 +49,33 @@ pub const EM__TARG = struct {
             hi = reg(hal.RTC_BASE + hal.RTC_O_TIME524M).*;
             if (lo == reg(hal.RTC_BASE + hal.RTC_O_TIME8U).*) break;
         }
-        o_subs.* = lo << 16;
-        return hi;
+        return .{ .secs = hi, .subs = lo << 16 };
     }
 
     pub fn toThresh(ticks: u32) u32 {
         return reg(hal.RTC_BASE + hal.RTC_O_TIME8U).* + ticks;
     }
 
-    pub fn toTicks(secs256: u32) u32 {
-        return secs256 << 8;
-    }
-
-    export fn CPUIRQ0_isr() void {
-        if (em.IS_META) return;
+    fn CPUIRQ0_isr() void {
         em.reg(hal.RTC_BASE + hal.RTC_O_ICLR).* = hal.RTC_ICLR_EV0;
         if (cur_handler != null) cur_handler.?(Handler{});
     }
 };
+
+export fn CPUIRQ0_isr() void {
+    if (em.IS_META) return;
+    EM__TARG.CPUIRQ0_isr();
+}
+
+//->> zigem publish #|c3439747d7fd1854741f00935f4c0cbda1d0f6af598277d3db7d47b6776e99c8|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+
+//->> EM__TARG publics
+pub const disable = EM__TARG.disable;
+pub const enable = EM__TARG.enable;
+pub const getRawTime = EM__TARG.getRawTime;
+pub const toThresh = EM__TARG.toThresh;

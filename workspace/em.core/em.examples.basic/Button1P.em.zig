@@ -11,16 +11,16 @@ pub const AppLed = em.import.@"em__distro/BoardC".AppLed;
 pub const Common = em.import.@"em.mcu/Common";
 
 pub const EM__META = struct {
-    pub fn em__constructH() void {
-        AppButEdge.setDetectHandlerH(em__U.fxn("handler", AppButEdge.HandlerArg));
+    //
+    pub fn em__constructM() void {
+        AppButEdge.setDetectHandlerM(em__U.fxn("handler", AppButEdge.HandlerArg));
     }
 };
 
 pub const EM__TARG = struct {
     //
     pub fn em__startup() void {
-        AppButEdge.makeInput();
-        AppButEdge.setInternalPullup(true);
+        AppButEdge.init(true);
         AppButEdge.setDetectFallingEdge();
     }
 
@@ -40,3 +40,13 @@ pub const EM__TARG = struct {
         AppLed.off();
     }
 };
+
+
+//->> zigem publish #|d91e073f81777153e824043bf08476551c6d70086260b5f6b0e9fe335978bfb1|#
+
+//->> EM__META publics
+
+//->> EM__TARG publics
+pub const handler = EM__TARG.handler;
+
+//->> zigem publish -- end of generated code

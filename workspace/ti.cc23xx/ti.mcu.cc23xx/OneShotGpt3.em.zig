@@ -1,30 +1,28 @@
 pub const em = @import("../../zigem/em.zig");
-pub const em__U = em.module(@This(), .{
-    .inherits = OneShotMilliI,
-});
+pub const em__U = em.module(@This(), .{ .inherits = OneShotI });
 
 pub const Idle = em.import.@"ti.mcu.cc23xx/Idle";
 pub const IntrVec = em.import.@"em.arch.arm/IntrVec";
-pub const OneShotMilliI = em.import.@"em.hal/OneShotMilliI";
+pub const OneShotI = em.import.@"em.hal/OneShotI";
 
-pub const HandlerArg = OneShotMilliI.HandlerArg;
-pub const HandlerFxn = OneShotMilliI.HandlerFxn;
+pub const HandlerArg = OneShotI.HandlerArg;
 
 pub const EM__META = struct {
     //
-    pub fn em__constructH() void {
-        IntrVec.useIntrH("LGPT3_COMB");
+    pub fn em__constructM() void {
+        IntrVec.useIntrM("LGPT3_COMB");
     }
 };
 
 pub const EM__TARG = struct {
     //
+    const HandlerFxn = OneShotI.HandlerFxn;
 
     const hal = em.hal;
     const reg = em.reg;
 
     var cur_arg: em.ptr_t = null;
-    var cur_fxn: HandlerFxn = null;
+    var cur_fxn: em.Fxn_T(HandlerArg) = null;
 
     pub fn disable() void {
         cur_fxn = null;
@@ -34,21 +32,46 @@ pub const EM__TARG = struct {
     }
 
     pub fn enable(msecs: u32, handler: HandlerFxn, arg: em.ptr_t) void {
+        ustart(msecs * 1000, handler, arg);
+    }
+
+    pub fn uenable(usecs: u32, handler: HandlerFxn, arg: em.ptr_t) void {
+        ustart(usecs, handler, arg);
+    }
+
+    fn ustart(usecs: u32, handler: HandlerFxn, arg: em.ptr_t) void {
+        if (em.IS_META) return;
         cur_fxn = handler;
         cur_arg = arg;
         Idle.waitOnly(.SET);
         hal.NVIC_EnableIRQ(hal.LGPT3_COMB_IRQn);
         reg(hal.CLKCTL_BASE + hal.CLKCTL_O_CLKENSET0).* = hal.CLKCTL_CLKENSET0_LGPT3;
         reg(hal.LGPT3_BASE + hal.LGPT_O_IMSET).* = hal.LGPT_IMSET_TGT;
-        reg(hal.LGPT3_BASE + hal.LGPT_O_PRECFG).* = (192 << hal.LGPT_PRECFG_TICKDIV_S);
-        reg(hal.LGPT3_BASE + hal.LGPT_O_TGT).* = msecs * (250);
+        reg(hal.LGPT3_BASE + hal.LGPT_O_PRECFG).* = (48 << hal.LGPT_PRECFG_TICKDIV_S);
+        reg(hal.LGPT3_BASE + hal.LGPT_O_TGT).* = usecs;
         reg(hal.LGPT3_BASE + hal.LGPT_O_CTL).* = hal.LGPT_CTL_MODE_UP_ONCE | hal.LGPT_CTL_C0RST;
     }
 
-    export fn LGPT3_COMB_isr() void {
-        if (em.IS_META) return;
+    fn LGPT3_COMB_isr() void {
         const fxn = cur_fxn;
-        disable();
+        EM__TARG.disable();
         if (fxn != null) fxn.?(.{ .arg = cur_arg });
     }
 };
+
+export fn LGPT3_COMB_isr() void {
+    if (em.IS_META) return;
+    EM__TARG.LGPT3_COMB_isr();
+}
+
+//->> zigem publish #|ab3d0b77b634fb64bfa5aeaca5fcb581947f5e702b0a8328b11ef3d10a2797c0|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+
+//->> EM__TARG publics
+pub const disable = EM__TARG.disable;
+pub const enable = EM__TARG.enable;
+pub const uenable = EM__TARG.uenable;

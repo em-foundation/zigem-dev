@@ -19,19 +19,18 @@ pub const FiberBody = struct {
 };
 
 pub const Fiber = struct {
-    const Self = @This();
-    link: ?Obj,
-    body: BodyFxn,
-    arg: usize = 0,
-    pub fn post(self: *Self) void {
-        em__U.scope().Fiber_post(self);
+    _link: ?Obj,
+    _body: BodyFxn,
+    _arg: usize = 0,
+    pub fn post(self: *Fiber) void {
+        EM__TARG.Fiber_post(self);
     }
 };
 
 pub const EM__META = struct {
     //
-    pub fn createH(body: BodyFxn) Obj {
-        const fiber = em__C.FiberOF.createH(.{ .body = body });
+    pub fn createM(body: BodyFxn) Obj {
+        const fiber = em__C.FiberOF.createM(.{ ._body = body });
         return fiber;
     }
 };
@@ -51,26 +50,26 @@ pub const EM__TARG = struct {
             if (self.empty()) {
                 self.head = elem;
             } else {
-                self.tail.link = elem;
+                self.tail._link = elem;
             }
             self.tail = elem;
-            elem.link = END;
+            elem._link = END;
         }
         fn take(self: *Self) *Fiber {
             const e = self.head;
-            self.head = e.link.?;
-            e.link = null;
+            self.head = e._link.?;
+            e._link = null;
             if (self.head == END) self.tail = END;
             return e;
         }
     }{};
 
-    pub fn dispatch() void {
+    fn dispatch() void {
         while (!ready_list.empty()) {
             const fiber = ready_list.take();
-            const body = fiber.body;
+            const body = fiber._body;
             Common.GlobalInterrupts.enable();
-            body.?(.{ .arg = fiber.arg });
+            body.?(.{ .arg = fiber._arg });
             _ = Common.GlobalInterrupts.disable();
         }
     }
@@ -85,9 +84,20 @@ pub const EM__TARG = struct {
         }
     }
 
-    pub fn Fiber_post(self: *Fiber) void {
+    fn Fiber_post(self: *Fiber) void {
         const key = Common.GlobalInterrupts.disable();
-        if (self.link == null) ready_list.give(self);
+        if (self._link == null) ready_list.give(self);
         Common.GlobalInterrupts.restore(key);
     }
 };
+
+//->> zigem publish #|d3e7d7d0d8e288d22da3f7cbda34fb49b28d792e02bac18397b778e06bbea45e|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+pub const createM = EM__META.createM;
+
+//->> EM__TARG publics
+pub const run = EM__TARG.run;

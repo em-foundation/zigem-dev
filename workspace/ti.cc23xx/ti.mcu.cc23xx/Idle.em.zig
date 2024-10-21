@@ -1,44 +1,34 @@
 pub const em = @import("../../zigem/em.zig");
-pub const em__U = em.module(@This(), .{
-    .inherits = em.import.@"em.hal/IdleI",
-});
+pub const em__U = em.module(@This(), .{ .inherits = IdleI });
 pub const em__C = em__U.config(EM__CONFIG);
+
+pub const Debug = em.import.@"em.lang/Debug";
+pub const Hapi = em.import.@"ti.mcu.cc23xx/Hapi";
+pub const IdleI = em.import.@"em.hal/IdleI";
 
 pub const EM__CONFIG = struct {
     sleep_enter_fxn_tab: em.Table(SleepCbFxn, .RO),
     sleep_leave_fxn_tab: em.Table(SleepCbFxn, .RO),
 };
 
-pub const Debug = em.import.@"em.lang/Debug";
-pub const Hapi = em.import.@"ti.mcu.cc23xx/Hapi";
-
 pub const SleepCbFxn = em.Fxn(SleepCbArg);
 pub const SleepCbArg = struct {};
-pub const CallbackTab = em.Table(SleepCbFxn, .RO);
 
 pub const EM__META = struct {
     //
-    var sleep_enter_cb_tab = em__C.sleep_enter_fxn_tab;
-    var sleep_leave_cb_tab = em__C.sleep_leave_fxn_tab;
-
-    pub fn addSleepEnterCbH(cb: SleepCbFxn) void {
-        sleep_enter_cb_tab.add(cb);
+    pub fn addSleepEnterCbM(cb: SleepCbFxn) void {
+        em__C.sleep_enter_fxn_tab.addM(cb);
     }
 
-    pub fn addSleepLeaveCbH(cb: SleepCbFxn) void {
-        sleep_leave_cb_tab.add(cb);
+    pub fn addSleepLeaveCbM(cb: SleepCbFxn) void {
+        em__C.sleep_leave_fxn_tab.addM(cb);
     }
-
-    pub fn setWaitOnly(_: bool) void {} // TODO why????
 };
 
 pub const EM__TARG = struct {
     //
     const hal = em.hal;
     const reg = em.reg;
-
-    const sleep_enter_fxn_tab = em__C.sleep_enter_fxn_tab;
-    const sleep_leave_fxn_tab = em__C.sleep_leave_fxn_tab;
 
     var wait_only: u8 = 0;
 
@@ -52,7 +42,8 @@ pub const EM__TARG = struct {
     }
 
     fn doSleep() void {
-        for (sleep_enter_fxn_tab) |fxn| {
+        if (em.IS_META) return;
+        for (em__C.sleep_enter_fxn_tab.items()) |fxn| {
             fxn.?(.{});
         }
         em.@"%%[b:]"(1);
@@ -63,13 +54,14 @@ pub const EM__TARG = struct {
         Hapi.enterStandby(0);
         Debug.startup();
         em.@"%%[b+]"();
-        for (sleep_leave_fxn_tab) |fxn| {
+        for (em__C.sleep_leave_fxn_tab.items()) |fxn| {
             fxn.?(.{});
         }
         set_PRIMASK(0);
     }
 
     fn doWait() void {
+        if (em.IS_META) return;
         em.@"%%[b:]"(0);
         em.@"%%[b-]"();
         set_PRIMASK(1);
@@ -91,6 +83,7 @@ pub const EM__TARG = struct {
     }
 
     fn set_PRIMASK(m: u32) void {
+        if (em.IS_META) return;
         asm volatile ("msr primask, %[m]"
             :
             : [m] "r" (m),
@@ -105,7 +98,21 @@ pub const EM__TARG = struct {
         }
     }
 
-    pub fn wakeup() void {
+    fn wakeup() void {
         // TODO
     }
 };
+
+//->> zigem publish #|dc5e3ffee8fcc9470051565da4b8e1471f50639f764cbecb4dc697bb6e0ade94|#
+
+//->> generated source code -- do not modify
+//->> all of these lines can be safely deleted
+
+//->> EM__META publics
+pub const addSleepEnterCbM = EM__META.addSleepEnterCbM;
+pub const addSleepLeaveCbM = EM__META.addSleepLeaveCbM;
+
+//->> EM__TARG publics
+pub const exec = EM__TARG.exec;
+pub const pause = EM__TARG.pause;
+pub const waitOnly = EM__TARG.waitOnly;

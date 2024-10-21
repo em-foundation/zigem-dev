@@ -5,12 +5,18 @@ const cli = @import("zig-cli");
 
 const Fs = @import("./Fs.zig");
 const Heap = @import("./Heap.zig");
+const Parser = @import("Parser.zig");
 const Props = @import("./Props.zig");
+const Publisher = @import("./Publisher.zig");
+const Renderer = @import("./Renderer.zig");
 const Session = @import("./Session.zig");
+
+var writer: @TypeOf(std.io.getStdOut().writer()) = undefined;
 
 var t0: f80 = 0.0;
 
 var params = struct {
+    force: bool = false,
     load: bool = false,
     meta: bool = false,
     setup: ?[]const u8 = null,
@@ -18,12 +24,22 @@ var params = struct {
     work: []const u8 = ".",
 }{};
 
+fn doCheck() !void {
+    const path = params.unit;
+    const idx = std.mem.indexOf(u8, path, "/").?;
+    const un = path[idx + 1 ..];
+    try Session.activate(.{ .work = params.work, .mode = .CHECK });
+    try Session.doCheck(un);
+    const stdout = try execMake("check");
+    if (stdout.len > 0) std.log.debug("stdout = {s}", .{stdout});
+    try printDone();
+}
+
 fn doClean() !void {
     try Session.activate(.{ .work = params.work, .mode = .CLEAN });
 }
 
 fn doCompile() !void {
-    const writer = std.io.getStdOut().writer();
     const path = params.unit;
     const idx = std.mem.indexOf(u8, path, "/").?;
     const bn = path[0..idx];
@@ -37,8 +53,7 @@ fn doCompile() !void {
     var stdout = try execMake("meta");
     if (stdout.len > 0) std.log.debug("stdout = {s}", .{stdout});
     if (params.meta) {
-        const t2: f80 = @floatFromInt(std.time.milliTimestamp());
-        try writer.print("done in {d:.2} seconds\n", .{(t2 - t0) / 1000.0});
+        try printDone();
         return;
     }
     try writer.print("compiling TARG ...\n", .{});
@@ -47,8 +62,7 @@ fn doCompile() !void {
     try writer.print("    image sha: {s}", .{sha32}); // contains \n
     const sz = try getSizes(stdout);
     try writer.print("    image size: text ({d}) + const ({d}) + data ({d}) + bss ({d})\n", .{ sz[0], sz[1], sz[2], sz[3] });
-    const t2: f80 = @floatFromInt(std.time.milliTimestamp());
-    try writer.print("done in {d:.2} seconds\n", .{(t2 - t0) / 1000.0});
+    try printDone();
     if (!params.load) return;
     try writer.print("loading...\n", .{});
     stdout = try execMake("load");
@@ -56,17 +70,31 @@ fn doCompile() !void {
     try writer.print("done.\n", .{});
 }
 
+fn doParse() !void {
+    try Parser.exec(params.unit);
+}
+
 fn doProperties() !void {
     try Session.activate(.{ .work = params.work, .mode = .REFRESH, .setup = params.setup });
-    const writer = std.io.getStdOut().writer();
     const pm = Props.getProps();
     var ent_iter = pm.iterator();
     while (ent_iter.next()) |e| try writer.print("{s} = {s}\n", .{ e.key_ptr.*, e.value_ptr.* });
 }
 
+fn doPublish() !void {
+    try Publisher.exec(params.unit, params.force);
+    try printDone();
+}
+
 fn doRefresh() !void {
     try Session.activate(.{ .work = params.work, .mode = .REFRESH });
     try Session.doRefresh();
+    try printDone();
+}
+
+fn doRender() !void {
+    try Renderer.exec(params.unit);
+    try printDone();
 }
 
 fn execMake(goal: []const u8) ![]const u8 {
@@ -112,8 +140,14 @@ fn getSizes(lines: []const u8) ![4]usize {
     return .{ textSz, constSz, dataSz, bssSz };
 }
 
+fn printDone() !void {
+    const t2: f80 = @floatFromInt(std.time.milliTimestamp());
+    try writer.print("done in {d:.2} seconds\n", .{(t2 - t0) / 1000.0});
+}
+
 pub fn main() !void {
     defer Heap.deinit();
+    writer = std.io.getStdOut().writer();
     t0 = @floatFromInt(std.time.milliTimestamp());
     var runner = try cli.AppRunner.init(Heap.get());
 
@@ -124,6 +158,14 @@ pub fn main() !void {
         .required = true,
         .value_name = "UPATH",
         .value_ref = runner.mkRef(&params.unit),
+    };
+
+    const force_opt = cli.Option{
+        .long_name = "force",
+        .help = "Force this operation",
+        .required = false,
+        .value_name = "FORCE",
+        .value_ref = runner.mkRef(&params.force),
     };
 
     const load_opt = cli.Option{
@@ -162,6 +204,18 @@ pub fn main() !void {
         .value_ref = runner.mkRef(&params.work),
     };
 
+    const check_cmd = cli.Command{
+        .name = "check",
+        .description = cli.Description{ .one_line = "semantic checking" },
+        .options = &.{
+            file_opt,
+            work_opt,
+        },
+        .target = cli.CommandTarget{
+            .action = cli.CommandAction{ .exec = doCheck },
+        },
+    };
+
     const clean_cmd = cli.Command{
         .name = "clean",
         .options = &.{
@@ -186,6 +240,18 @@ pub fn main() !void {
         },
     };
 
+    const parse_cmd = cli.Command{
+        .name = "parse",
+        .description = cli.Description{ .one_line = "*** WIP ***" },
+        .options = &.{
+            file_opt,
+            work_opt,
+        },
+        .target = cli.CommandTarget{
+            .action = cli.CommandAction{ .exec = doParse },
+        },
+    };
+
     const properties_cmd = cli.Command{
         .name = "properties",
         .options = &.{
@@ -194,6 +260,19 @@ pub fn main() !void {
         },
         .target = cli.CommandTarget{
             .action = cli.CommandAction{ .exec = doProperties },
+        },
+    };
+
+    const publish_cmd = cli.Command{
+        .name = "publish",
+        .description = cli.Description{ .one_line = "*** WIP ***" },
+        .options = &.{
+            file_opt,
+            force_opt,
+            work_opt,
+        },
+        .target = cli.CommandTarget{
+            .action = cli.CommandAction{ .exec = doPublish },
         },
     };
 
@@ -207,15 +286,31 @@ pub fn main() !void {
         },
     };
 
+    const render_cmd = cli.Command{
+        .name = "render",
+        .description = cli.Description{ .one_line = "*** WIP ***" },
+        .options = &.{
+            file_opt,
+            work_opt,
+        },
+        .target = cli.CommandTarget{
+            .action = cli.CommandAction{ .exec = doRender },
+        },
+    };
+
     const app = &cli.App{
         .command = cli.Command{
             .name = "zigem",
             .target = cli.CommandTarget{
                 .subcommands = &.{
+                    check_cmd,
                     clean_cmd,
                     compile_cmd,
+                    parse_cmd,
                     properties_cmd,
+                    publish_cmd,
                     refresh_cmd,
+                    render_cmd,
                 },
             },
         },
@@ -225,4 +320,23 @@ pub fn main() !void {
     };
 
     return runner.run(app);
+}
+
+pub const std_options = .{
+    .logFn = log,
+};
+
+pub fn log(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    if (message_level != .err) {
+        if (message_level == .debug and std.mem.startsWith(u8, format, "***")) return;
+        if (std.mem.startsWith(u8, @tagName(scope), "zls_config")) return;
+        if (std.mem.startsWith(u8, @tagName(scope), "zls_server")) return;
+        if (std.mem.startsWith(u8, @tagName(scope), "zls_store")) return;
+    }
+    std.log.defaultLog(message_level, scope, format, args);
 }
